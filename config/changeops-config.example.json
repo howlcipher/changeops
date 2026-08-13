@@ -1,0 +1,22 @@
+{
+  "repos": {
+    "howlframe": {
+      "path": "/home/user/src/howlframe",
+      "allowed_branches": ["main"],
+      "validation_profile": "go",
+      "allowed_actions": [
+        "create_release_candidate",
+        "record_release_ready",
+        "rollback_release_candidate"
+      ]
+    },
+    "changeops": {
+      "path": "/var/home/howlcipher/dev/changeops",
+      "allowed_branches": ["main", "agent/changeops-v01"],
+      "validation_profile": "go",
+      "allowed_actions": [
+        "create_release_candidate"
+      ]
+    }
+  }
+}

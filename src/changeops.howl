@@ -39,9 +39,12 @@
                                         (let (ev_candidate_exists "")
                                           (let (ev_allowed_branches "")
                                             (let (ev_allowed_actions "")
-                                              (do
-                                                (for arg (cli_args)
-                                                  (let (parts (str_split arg "="))
+                                              (let (risk_infra "false")
+                                                (let (risk_deps "false")
+                                                  (let (risk_ci "false")
+                                                    (do
+                                                      (for arg (cli_args)
+                                                        (let (parts (str_split arg "="))
                                                     (let (key "")
                                                       (let (val "")
                                                         (let (i 0)
@@ -62,6 +65,9 @@
                                                             (if (= key "candidate_exists") (set ev_candidate_exists val))
                                                             (if (= key "allowed_branches") (set ev_allowed_branches val))
                                                             (if (= key "allowed_actions") (set ev_allowed_actions val))
+                                                            (if (= key "risk_infra") (set risk_infra val))
+                                                            (if (= key "risk_deps") (set risk_deps val))
+                                                            (if (= key "risk_ci") (set risk_ci val))
                                                           ))))))
                                                           
                                                 (let (action_allowed "false")
@@ -182,6 +188,7 @@
                                             )
                                           )
                                         )
+                                        )
                                       )
                                     )
                                   )
@@ -202,3 +209,4 @@
     )
   )
 )
+))

@@ -25,6 +25,12 @@ PROJECT_DIR=$PWD
 export PATH="$PROJECT_DIR:$PATH"
 export CHANGEOPS_BASE="$TEMP_REPO/.changeops"
 
+# Generate approval key
+TEMP_KEY=$(mktemp)
+dd if=/dev/urandom of="$TEMP_KEY" bs=32 count=1 2>/dev/null
+chmod 600 "$TEMP_KEY"
+export CHANGEOPS_APPROVAL_KEY_FILE="$TEMP_KEY"
+
 cat <<EOF > config/changeops-config.json
 {
   "repos": {

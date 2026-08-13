@@ -1,0 +1,412 @@
+/* ChangeOps systems-console aesthetic
+   Monochrome-first: all copy stays black/white for maximum readability.
+   Gray, very-dark-navy, and very-dark-plum are woven in only as structural
+   tone — panel washes, borders, and semantic accents — never as body text.
+   A single matrix-green accent marks the live status dot.
+   Inherits identical variables from HowlFrame for brand consistency. */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=VT323&display=swap');
+
+:root {
+  --bg: #000000;
+  --bg-header: #070a14;   /* near-black navy wash */
+  --bg-code: #0d0716;     /* near-black plum wash */
+  --bg-hover: #131319;    /* near-black neutral wash */
+  --fg: #ffffff;
+  --fg-muted: #9a9aa3;    /* gray — secondary text, 7.5:1 on black */
+  --border: #4a4d5a;      /* soft slate gray — secondary structure */
+  --border-strong: #ffffff;
+  --edge-navy: #4a5aa8;   /* structural accent: nav, sections, focus */
+  --edge-plum: #6e4aa3;   /* content accent: code, tables, quotes, hover */
+  --edge-green: #39ff14;  /* matrix accent: live-status dot only */
+  --scanline-color: rgba(255, 255, 255, 0.035);
+}
+
+.light-mode {
+  --bg: #ffffff;
+  --bg-header: #eef1fa;
+  --bg-code: #f5f0fa;
+  --bg-hover: #f2f2f5;
+  --fg: #000000;
+  --fg-muted: #55555f;
+  --border: #c7c9d1;
+  --border-strong: #000000;
+  --edge-navy: #3f5089;
+  --edge-plum: #6a4d8f;
+  --edge-green: #1fa62e;
+  --scanline-color: rgba(0, 0, 0, 0.035);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 16px;
+  line-height: 1.6;
+  transition: background-color 0s, color 0s; /* No smooth transition, brutalist */
+  overflow-x: hidden;
+  counter-reset: sec term;
+}
+
+/* Ambient city-glow wash, sits behind all content — subtle, never touches text contrast */
+body::before {
+  content: " ";
+  display: block;
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 0% 0%, var(--bg-header) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, var(--bg-code) 0%, transparent 60%);
+  opacity: 0.6;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Scanlines overlay */
+body::after {
+  content: " ";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(0, 0, 0, 0) 50%, var(--scanline-color) 50%);
+  z-index: 2;
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--edge-navy);
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  z-index: 10;
+  font-family: 'Courier Prime', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.container {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+header {
+  background-color: var(--bg-header);
+  border-bottom: 2px solid var(--border-strong);
+  margin: -2rem -2rem 2rem -2rem;
+  padding: 1.5rem 2rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.kicker {
+  font-family: 'VT323', monospace;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.95rem;
+  margin: 0 0 0.25rem 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'VT323', 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  margin: 0 0 1rem 0;
+  font-weight: normal;
+}
+
+h1 {
+  font-size: 3rem;
+  margin-bottom: 0;
+  letter-spacing: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+h2 {
+  font-size: 2rem;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+h2::before {
+  counter-increment: sec;
+  content: "SEC_" counter(sec, decimal-leading-zero);
+  color: var(--edge-navy);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+
+/* Blinking cursor for main title */
+h1::after {
+  content: '█';
+  animation: blink 1s step-end infinite;
+  margin-left: 5px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+section {
+  border-left: 3px solid var(--edge-navy);
+  padding-left: 1.25rem;
+  margin-bottom: 3rem;
+}
+
+a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--fg-muted);
+}
+
+a:hover {
+  background-color: var(--edge-plum);
+  color: #ffffff;
+  border-bottom-color: var(--edge-plum);
+}
+
+a:focus-visible,
+#theme-toggle:focus-visible,
+.skip-link:focus-visible {
+  outline: 2px solid var(--edge-navy);
+  outline-offset: 3px;
+}
+
+#theme-toggle {
+  background-color: var(--bg);
+  color: var(--fg);
+  border: 2px solid var(--border-strong);
+  padding: 0.5rem 1rem;
+  font-family: 'Courier Prime', monospace;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+#theme-toggle:hover {
+  background-color: var(--fg);
+  color: var(--bg);
+}
+
+pre {
+  background-color: var(--bg-code);
+  border: 2px solid var(--border-strong);
+  padding: 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  position: relative;
+  counter-increment: term;
+}
+
+/* Terminal block styling */
+pre::before {
+  content: "TERMINAL_" counter(term, decimal-leading-zero);
+  display: block;
+  font-family: 'VT323', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  margin: -1rem -1rem 0.75rem -1rem;
+  padding: 0.3rem 1rem;
+  background-color: var(--edge-navy);
+  color: #ffffff;
+}
+
+code {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  background-color: var(--fg);
+  color: var(--bg);
+  padding: 0.1rem 0.3rem;
+  font-size: 0.9em;
+}
+
+pre code {
+  background-color: transparent;
+  color: var(--fg);
+  padding: 0;
+}
+
+.light-mode pre code {
+  color: var(--fg);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  border: 2px solid var(--border-strong);
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  font-family: 'VT323', 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background-color: var(--bg-code);
+  border-bottom: 2px solid var(--border-strong);
+}
+
+tbody tr:hover td {
+  background-color: var(--bg-hover);
+}
+
+blockquote {
+  border-left: 4px solid var(--edge-plum);
+  background-color: var(--bg-code);
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  font-style: italic;
+}
+
+ul, ol {
+  padding-left: 1.5rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+ul {
+  list-style: none;
+  padding-left: 1.25rem;
+}
+
+ul li::before {
+  content: '>';
+  color: var(--edge-navy);
+  font-weight: bold;
+  margin-right: 0.5rem;
+  margin-left: -1.25rem;
+}
+
+ol {
+  padding-left: 1.75rem;
+}
+
+ol li::marker {
+  font-family: 'VT323', monospace;
+  color: var(--edge-navy);
+  font-size: 1.15em;
+}
+
+footer {
+  border-top: 2px solid var(--border-strong);
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background-color: var(--edge-green);
+  margin-right: 0.5rem;
+  animation: blink 2s step-end infinite;
+}
+
+footer a {
+  color: var(--fg-muted);
+  border-bottom-color: var(--border);
+}
+
+footer a:hover {
+  color: #ffffff;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+  .container {
+    padding: 1rem;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin: -1rem -1rem 1.5rem -1rem;
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    flex-wrap: wrap;
+  }
+
+  section {
+    padding-left: 0.85rem;
+  }
+
+  #theme-toggle {
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  pre {
+    padding: 0.5rem;
+  }
+
+  pre::before {
+    margin: -0.5rem -0.5rem 0.75rem -0.5rem;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h1::after,
+  .status-dot {
+    animation: none;
+  }
+}

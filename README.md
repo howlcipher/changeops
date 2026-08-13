@@ -2,6 +2,8 @@
 
 A local AI-assisted Git change and release controller built on HowlFrame.
 
+Website: https://howlcipher.github.io/changeops/
+
 ## What problem does it solve?
 ChangeOps bridges the gap between AI proposals and production reality using bounded execution. AI agents are excellent at reasoning about when a release candidate should be created, but they cannot be given unconstrained authority to mutate your repository. ChangeOps proves that **intent is not authority**. It allows an AI (or a user) to propose actions, strictly validates intent via deterministic `HowlFrame` capability checks, requires trusted approval for state mutations, and executes bounded operations securely.
 

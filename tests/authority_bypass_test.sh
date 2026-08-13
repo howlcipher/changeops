@@ -109,8 +109,10 @@ OUT=$(./changeops evaluate tests/prop.json) || true
 DEC_ID=$(echo "$OUT" | grep "Decision saved as" | awk '{print $4}' | tr -d '.')
 ./changeops approve "$DEC_ID" >/dev/null
 
-# mutate decision to transfer to testrepo2
-sed -i 's/"repo": "testrepo"/"repo": "testrepo2"/g' .changeops/decisions/${DEC_ID}.json
+# mutate decision to transfer to testrepo2 and bypass stale evidence
+REV2=$(cd tests/testrepo2 && git rev-parse HEAD)
+sed -i "s/\"repo\": \"testrepo\"/\"repo\": \"testrepo2\"/g" .changeops/decisions/${DEC_ID}.json
+sed -i "s/\"revision\": \"[a-f0-9]*\"/\"revision\": \"${REV2}\"/g" .changeops/decisions/${DEC_ID}.json
 
 OUT2=$(./changeops execute "$DEC_ID" 2>&1) || true
 if echo "$OUT2" | grep -q "Created tag"; then

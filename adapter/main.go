@@ -47,6 +47,12 @@ type Decision struct {
 	Evidence Evidence `json:"evidence"`
 	Result   string   `json:"result"`
 	Reason   string   `json:"reason"`
+	Digest   string   `json:"digest"`
+}
+
+func computeDigest(d Decision) string {
+	payload := fmt.Sprintf("%s|%s|%s|%s", d.Proposal.Action, d.Proposal.Repo, d.Evidence.Revision, d.Result)
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(payload)))
 }
 
 var (
@@ -161,7 +167,7 @@ func validate(repoID string, repoPath string, profile string) {
 	fmt.Printf("Validation complete. tests=%s build=%s\n", tests, build)
 }
 
-func invokeHowlFrame(proposalFile string, ev Evidence) (map[string]string, error) {
+func invokeHowlFrame(proposalFile string, ev Evidence, repoCfg ConfigRepo) (map[string]string, error) {
 	args := []string{"run", "-allow-caps", "filesystem", "changeops.hfbc", proposalFile}
 	args = append(args, fmt.Sprintf("repo=%s", ev.Repo))
 	args = append(args, fmt.Sprintf("branch=%s", ev.Branch))
@@ -172,6 +178,8 @@ func invokeHowlFrame(proposalFile string, ev Evidence) (map[string]string, error
 	args = append(args, fmt.Sprintf("build=%s", ev.Build))
 	args = append(args, fmt.Sprintf("approved=%s", ev.Approved))
 	args = append(args, fmt.Sprintf("candidate_exists=%s", ev.CandidateExists))
+	args = append(args, fmt.Sprintf("allowed_branches=%s", strings.Join(repoCfg.AllowedBranches, ",")))
+	args = append(args, fmt.Sprintf("allowed_actions=%s", strings.Join(repoCfg.AllowedActions, ",")))
 
 	cmd := exec.Command("howlframe", args...)
 	out, err := cmd.CombinedOutput()
@@ -263,7 +271,7 @@ func main() {
 		}
 
 		ev := gatherEvidence(prop.Repo, repoCfg.Path)
-		res, err := invokeHowlFrame(proposalFile, ev)
+		res, err := invokeHowlFrame(proposalFile, ev, repoCfg)
 		if err != nil {
 			fmt.Printf("Evaluation error: %v\n", err)
 			os.Exit(1)
@@ -278,6 +286,7 @@ func main() {
 			Result:   res["decision"],
 			Reason:   res["reason"],
 		}
+		dec.Digest = computeDigest(dec)
 
 		fmt.Printf("Decision: %s\nReason: %s\n", dec.Result, dec.Reason)
 
@@ -306,6 +315,10 @@ func main() {
 		}
 		var dec Decision
 		json.Unmarshal(decData, &dec)
+		if dec.Digest != computeDigest(dec) {
+			fmt.Println("Decision modified")
+			os.Exit(1)
+		}
 		dec.Evidence.Approved = "true"
 		decData, _ = json.MarshalIndent(dec, "", "  ")
 		os.WriteFile(decFile, decData, 0644)
@@ -329,6 +342,10 @@ func main() {
 		}
 		var dec Decision
 		json.Unmarshal(decData, &dec)
+		if dec.Digest != computeDigest(dec) {
+			fmt.Println("DENIED: Decision modified")
+			os.Exit(1)
+		}
 
 		repoCfg, ok := cfg.Repos[dec.Proposal.Repo]
 		if !ok {
@@ -346,7 +363,7 @@ func main() {
 		os.WriteFile(tmpProp, propData, 0644)
 		defer os.Remove(tmpProp)
 
-		res, err := invokeHowlFrame(tmpProp, dec.Evidence)
+		res, err := invokeHowlFrame(tmpProp, dec.Evidence, repoCfg)
 		if err != nil {
 			fmt.Printf("Execution evaluation error: %v\n", err)
 			os.Exit(1)

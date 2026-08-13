@@ -6,12 +6,12 @@ A local AI-assisted Git change and release controller built on HowlFrame.
 ChangeOps bridges the gap between AI proposals and production reality using bounded execution. AI agents are excellent at reasoning about when a release candidate should be created, but they cannot be given unconstrained authority to mutate your repository. ChangeOps proves that **intent is not authority**. It allows an AI (or a user) to propose actions, strictly validates intent via deterministic `HowlFrame` capability checks, requires trusted approval for state mutations, and executes bounded operations securely.
 
 ## Five-minute demo
-1. **Initialize Repositories**: Configure local Git repos securely in `changeops-config.json`.
+1. **Initialize Repositories**: Configure local Git repos securely in `config/changeops-config.json`. Set `CHANGEOPS_APPROVAL_KEY_FILE` to point to a secure key.
 2. **Inspect**: `changeops inspect my_repo` retrieves verifiable Git states.
-3. **Validate**: `changeops validate my_repo` runs tests and stores status safely out of AI manipulation reach.
+3. **Validate**: `changeops validate my_repo` runs tests and stores status safely in a cryptographically bound Evidence Envelope.
 4. **Evaluate**: Submit a JSON intent (e.g. `{"action": "create_release_candidate", "repo": "my_repo"}`). ChangeOps evaluates against a compiled `.hfbc` bytecode logic policy via the HowlFrame VM, safely outputting an evaluation decision (e.g. `REQUIRE_APPROVAL`).
-5. **Approve**: A human validates and signs off on the exact deterministic decision snapshot via `changeops approve <decision_id>`. 
-6. **Execute**: `changeops execute <decision_id>` performs a bounded action (like creating a local Git tag) *only* if the repo's evidence is not stale (`STALE_EVIDENCE`).
+5. **Approve**: A human validates and signs off on the exact deterministic decision snapshot via `changeops approve <decision_id>`, which generates an HMAC-SHA256 signature using the trusted key.
+6. **Execute**: `changeops execute <decision_id>` performs a bounded action (like creating a local Git tag) *only* if the repo's evidence is not stale (`STALE_EVIDENCE`) and the approval hasn't already been consumed.
 
 ## Architecture
 ChangeOps consists of two core boundaries:
@@ -82,7 +82,7 @@ Outputs the JSON lines audit trail of evaluation and execution logic.
 - **HowlFrame Policy:** Retains exclusive ownership over capabilities, validation requirements, and approvals.
 
 ## Security limitations
-This V0.1 architecture bounds logical actions within a local operational domain utilizing the Host Go Adapter wrapper and HowlFrame's execution capabilities. It is not currently hardened for multi-tenant, cloud-deployment arbitrary OS sandboxing. 
+This V0.2 architecture bounds logical actions within a local operational domain utilizing the Host Go Adapter wrapper and HowlFrame's execution capabilities. It establishes a strong local trusted evidence foundation with HMAC-SHA256 approvals and strict replay prevention. It is not yet integrated with remote GitHub API ingestion (slated for v0.3).
 
 ## Dogfooding findings
 ChangeOps was designed as the first independent external application to evaluate HowlFrame v0.1's usability. It found significant success building policy boundaries directly atop HowlFrame's CLI and bytecode primitives. Read `docs/howlframe_dogfooding_report.md` for complete results.

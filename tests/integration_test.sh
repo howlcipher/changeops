@@ -5,6 +5,8 @@ set -e
 TEMP_REPO=$(mktemp -d)
 cd "$TEMP_REPO"
 git init
+git config user.name "Test User"
+git config user.email "test@example.com"
 echo "test" > file.txt
 git add file.txt
 git commit -m "initial commit"

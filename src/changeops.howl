@@ -42,8 +42,16 @@
                                               (let (risk_infra "false")
                                                 (let (risk_deps "false")
                                                   (let (risk_ci "false")
-                                                    (do
-                                                      (for arg (cli_args)
+                                                    (let (ev_remote_head "")
+
+                                                      (let (ev_current_remote_head "")
+
+                                                        (let (ev_local_remote_match "false")
+
+                                                          (let (ev_ci_status "")
+
+                                                            (do
+                                                          (for arg (cli_args)
                                                         (let (parts (str_split arg "="))
                                                     (let (key "")
                                                       (let (val "")
@@ -68,6 +76,14 @@
                                                             (if (= key "risk_infra") (set risk_infra val))
                                                             (if (= key "risk_deps") (set risk_deps val))
                                                             (if (= key "risk_ci") (set risk_ci val))
+
+                                                            (if (= key "remote_head") (set ev_remote_head val))
+
+                                                            (if (= key "current_remote_head") (set ev_current_remote_head val))
+
+                                                            (if (= key "local_remote_match") (set ev_local_remote_match val))
+
+                                                            (if (= key "ci_status") (set ev_ci_status val))
                                                           ))))))
                                                           
                                                 (let (action_allowed "false")
@@ -120,14 +136,20 @@
                                                                     (if (= action "create_release_candidate")
                                                                       (if (and (= ev_repo repo) (and (= ev_working_tree "clean") (and (= ev_tests "PASS") (= ev_build "PASS"))))
                                                                         (if (= ev_revision ev_current_revision)
-                                                                          (if (= ev_approved "true")
-                                                                            (do
-                                                                              (set decision "ALLOW")
-                                                                              (set decision_reason "all evidence valid and approved")
+                                                                          (if (or (= ev_remote_head "") (= ev_remote_head ev_current_remote_head))
+                                                                            (if (= ev_approved "true")
+                                                                              (do
+                                                                                (set decision "ALLOW")
+                                                                                (set decision_reason "all evidence valid and approved")
+                                                                              )
+                                                                              (do
+                                                                                (set decision "REQUIRE_APPROVAL")
+                                                                                (set decision_reason "approval required for release candidate")
+                                                                              )
                                                                             )
                                                                             (do
-                                                                              (set decision "REQUIRE_APPROVAL")
-                                                                              (set decision_reason "approval required for release candidate")
+                                                                              (set decision "DENY")
+                                                                              (set decision_reason "STALE_REMOTE_EVIDENCE")
                                                                             )
                                                                           )
                                                                           (do
@@ -138,6 +160,36 @@
                                                                         (do
                                                                           (set decision "DENY")
                                                                           (set decision_reason "evidence is missing or failing")
+                                                                        )
+                                                                      )
+                                                                    )
+                                                                    (if (= action "create_github_draft_release")
+                                                                      (if (= ev_candidate_exists "true")
+                                                                        (if (= ev_revision ev_current_revision)
+                                                                          (if (or (= ev_remote_head "") (= ev_remote_head ev_current_remote_head))
+                                                                            (if (= ev_approved "true")
+                                                                              (do
+                                                                                (set decision "ALLOW")
+                                                                                (set decision_reason "all evidence valid and approved")
+                                                                              )
+                                                                              (do
+                                                                                (set decision "REQUIRE_APPROVAL")
+                                                                                (set decision_reason "approval required for github release")
+                                                                              )
+                                                                            )
+                                                                            (do
+                                                                              (set decision "DENY")
+                                                                              (set decision_reason "STALE_REMOTE_EVIDENCE")
+                                                                            )
+                                                                          )
+                                                                          (do
+                                                                            (set decision "DENY")
+                                                                            (set decision_reason "STALE_EVIDENCE")
+                                                                          )
+                                                                        )
+                                                                        (do
+                                                                          (set decision "DENY")
+                                                                          (set decision_reason "local candidate does not exist")
                                                                         )
                                                                       )
                                                                     )
@@ -209,4 +261,4 @@
     )
   )
 )
-))
+))))))

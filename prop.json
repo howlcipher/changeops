@@ -1,0 +1,6 @@
+{
+  "action": "create_release_candidate",
+  "repo": "testrepo",
+  "reason": "Test dirty repo",
+  "confidence": 0.9
+}

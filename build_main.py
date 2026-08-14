@@ -1,4 +1,6 @@
-package main
+import os
+
+content = """package main
 
 import (
 	"crypto/hmac"
@@ -49,18 +51,7 @@ type RiskEvidence struct {
 	ContainsSecuritySensitive bool `json:"contains_security_sensitive_paths"`
 }
 
-type RemoteEvidence struct {
-	Repo             string `json:"repo"`
-	ExpectedBranch   string `json:"expected_branch"`
-	RemoteHEAD       string `json:"remote_head"`
-	LocalRemoteMatch bool   `json:"local_remote_match"`
-	CIStatus         string `json:"ci_status"`
-	ReleaseExists    bool   `json:"release_exists"`
-	GatheredAt       string `json:"gathered_at"`
-}
-
 type EvidenceEnvelope struct {
-	Remote                   RemoteEvidence              `json:"remote"`
 	Schema                   string                      `json:"schema"`
 	Repo                     string                      `json:"repo"`
 	Revision                 string                      `json:"revision"`
@@ -75,7 +66,6 @@ type EvidenceEnvelope struct {
 }
 
 type RuntimeEvidence struct {
-	RemoteHEAD      string `json:"remote_head"`
 	CurrentRevision string `json:"current_revision"`
 	WorkingTree     string `json:"working_tree"`
 	Approved        string `json:"approved"`
@@ -195,69 +185,12 @@ func gitCommand(repoPath string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), err
 }
 
-
-func parseGitHubRepo(url string) string {
-	url = strings.TrimSpace(url)
-	url = strings.TrimSuffix(url, ".git")
-	if strings.HasPrefix(url, "https://github.com/") {
-		return strings.TrimPrefix(url, "https://github.com/")
-	}
-	if strings.HasPrefix(url, "git@github.com:") {
-		return strings.TrimPrefix(url, "git@github.com:")
-	}
-	return ""
-}
-
-func runGH(dir string, args ...string) (string, error) {
-	cmd := exec.Command("gh", args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
-func gatherRemoteEvidence(repoPath string, branch string, rev string) RemoteEvidence {
-	re := RemoteEvidence{
-		ExpectedBranch: branch,
-		GatheredAt:     time.Now().UTC().Format(time.RFC3339),
-	}
-	
-	remoteURL, err := gitCommand(repoPath, "config", "--get", "remote.origin.url")
-	if err != nil || remoteURL == "" {
-		return re
-	}
-	
-	repoName := parseGitHubRepo(remoteURL)
-	if repoName == "" {
-		return re
-	}
-	re.Repo = repoName
-
-	shaOut, err := runGH(repoPath, "api", fmt.Sprintf("repos/%s/commits/%s", repoName, branch), "--jq", ".sha")
-	if err == nil && shaOut != "" && !strings.Contains(shaOut, "not found") {
-		re.RemoteHEAD = shaOut
-		re.LocalRemoteMatch = (shaOut == rev)
-	}
-
-	statusOut, err := runGH(repoPath, "api", fmt.Sprintf("repos/%s/commits/%s/status", repoName, branch), "--jq", ".state")
-	if err == nil && statusOut != "" && !strings.Contains(statusOut, "not found") {
-		re.CIStatus = statusOut
-	}
-
-	tag := fmt.Sprintf("changeops/rc-%s", rev[:7])
-	_, err = runGH(repoPath, "release", "view", tag)
-	if err == nil {
-		re.ReleaseExists = true
-	}
-
-	return re
-}
-
 func computeRisk(repoPath string, rev string) RiskEvidence {
 	out, err := gitCommand(repoPath, "diff-tree", "--no-commit-id", "--name-only", "-r", rev)
 	if err != nil {
 		return RiskEvidence{}
 	}
-	files := strings.Split(out, "\n")
+	files := strings.Split(out, "\\n")
 	risk := RiskEvidence{
 		ChangedFileCount: len(files),
 	}
@@ -303,8 +236,6 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 		Risk: computeRisk(repoPath, rev),
 	}
 
-	ev.Remote = gatherRemoteEvidence(repoPath, branch, rev)
-
 	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s", repoID, rev, repoCfg.ValidationProfile, configDigest))))
 	cacheFile := filepath.Join(baseDir, fmt.Sprintf("evidence_%s.json", cacheKey))
 	if cacheData, err := os.ReadFile(cacheFile); err == nil {
@@ -328,7 +259,6 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 		WorkingTree: workingTree,
 		CandidateExists: candidateExists,
 		Approved: "false",
-		RemoteHEAD: ev.Remote.RemoteHEAD,
 		EvidenceDigest: computeEvidenceDigest(ev),
 	}
 	if ev.GeneratedAt != "" {
@@ -382,7 +312,7 @@ func validate(repoID string, repoPath string, repoCfg ConfigRepo, configDigest s
 		fmt.Println("Running go build ./...")
 		ev.Checks["build"] = runValidationCommand("go_build", repoPath, "go", "build", "./...")
 	} else {
-		fmt.Printf("Unknown profile: %s\n", repoCfg.ValidationProfile)
+		fmt.Printf("Unknown profile: %s\\n", repoCfg.ValidationProfile)
 	}
 	
 	wtStatus := "FAIL"
@@ -402,7 +332,7 @@ func validate(repoID string, repoPath string, repoCfg ConfigRepo, configDigest s
 	cacheFile := filepath.Join(baseDir, fmt.Sprintf("evidence_%s.json", cacheKey))
 	cacheData, _ := json.MarshalIndent(ev, "", "  ")
 	os.WriteFile(cacheFile, cacheData, 0644)
-	fmt.Printf("Validation complete. evidence_digest=%s\n", computeEvidenceDigest(ev))
+	fmt.Printf("Validation complete. evidence_digest=%s\\n", computeEvidenceDigest(ev))
 }
 
 func invokeHowlFrame(proposalFile string, ev EvidenceEnvelope, rtEv RuntimeEvidence, repoCfg ConfigRepo) (map[string]interface{}, error) {
@@ -453,7 +383,7 @@ func appendAudit(entry map[string]interface{}) {
 	f, _ := os.OpenFile(historyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer f.Close()
 	f.Write(data)
-	f.WriteString("\n")
+	f.WriteString("\\n")
 }
 
 func main() {
@@ -465,7 +395,7 @@ func main() {
 	initDirs()
 	cfg, configDigest, err := loadConfig()
 	if err != nil {
-		fmt.Printf("Error loading config: %v\n", err)
+		fmt.Printf("Error loading config: %v\\n", err)
 		os.Exit(1)
 	}
 
@@ -480,14 +410,14 @@ func main() {
 		repoID := os.Args[2]
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\\n", repoID)
 			os.Exit(1)
 		}
 		ev, rtEv := gatherEvidence(repoID, repoCfg.Path, repoCfg, configDigest)
 		fmt.Println("Evidence Envelope:")
 		evData, _ := json.MarshalIndent(ev, "", "  ")
 		fmt.Println(string(evData))
-		fmt.Println("\nRuntime Evidence:")
+		fmt.Println("\\nRuntime Evidence:")
 		rtData, _ := json.MarshalIndent(rtEv, "", "  ")
 		fmt.Println(string(rtData))
 
@@ -499,7 +429,7 @@ func main() {
 		repoID := os.Args[2]
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\\n", repoID)
 			os.Exit(1)
 		}
 		validate(repoID, repoCfg.Path, repoCfg, configDigest)
@@ -512,7 +442,7 @@ func main() {
 		repoID := os.Args[2]
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\\n", repoID)
 			os.Exit(1)
 		}
 		ev, rtEv := gatherEvidence(repoID, repoCfg.Path, repoCfg, configDigest)
@@ -528,10 +458,10 @@ func main() {
 		tmpProp := filepath.Join(baseDir, "tmp_plan.json")
 		defer os.Remove(tmpProp)
 		
-		fmt.Printf("Plan for repository: %s (revision: %s)\n", repoID, ev.Revision[:7])
-		fmt.Printf("Evidence Identity: %s\n", rtEv.EvidenceDigest[:16])
+		fmt.Printf("Plan for repository: %s (revision: %s)\\n", repoID, ev.Revision[:7])
+		fmt.Printf("Evidence Identity: %s\\n", rtEv.EvidenceDigest[:16])
 		if rtEv.EvidenceAge != "" {
-			fmt.Printf("Evidence Age: %s\n", rtEv.EvidenceAge)
+			fmt.Printf("Evidence Age: %s\\n", rtEv.EvidenceAge)
 		}
 		fmt.Println()
 		
@@ -542,96 +472,16 @@ func main() {
 			
 			res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
 			if err != nil {
-				fmt.Printf("%-30s ERROR — %v\n", act, err)
+				fmt.Printf("%-30s ERROR — %v\\n", act, err)
 				continue
 			}
 			decision := res["decision"].(string)
 			reason := res["reason"].(string)
 			if decision == "ALLOW" || decision == "REQUIRE_APPROVAL" {
-				fmt.Printf("%-30s %s\n", act, decision)
+				fmt.Printf("%-30s %s\\n", act, decision)
 			} else {
-				fmt.Printf("%-30s %s — %s\n", act, decision, reason)
+				fmt.Printf("%-30s %s — %s\\n", act, decision, reason)
 			}
-		}
-
-	
-	case "dogfood":
-		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops dogfood <repo_id>")
-			os.Exit(1)
-		}
-		repoID := os.Args[2]
-		repoCfg, ok := cfg.Repos[repoID]
-		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
-			os.Exit(1)
-		}
-
-		fmt.Println("ChangeOps Self-Dogfooding Workflow")
-		fmt.Println("----------------------------------")
-		
-		fmt.Printf("1. Identifying trusted repo: %s (%s)\n", repoID, repoCfg.Path)
-		fmt.Println("2. Gathering evidence and running validation profile...")
-		validate(repoID, repoCfg.Path, repoCfg, configDigest)
-		
-		ev, rtEv := gatherEvidence(repoID, repoCfg.Path, repoCfg, configDigest)
-		
-		fmt.Printf("3. Proposing release candidate for revision: %s\n", ev.Revision[:7])
-		prop := Proposal{
-			Action:     "create_release_candidate",
-			Repo:       repoID,
-			Reason:     "Automated self-dogfooding workflow proposal",
-			Confidence: 1.0,
-		}
-		
-		tmpProp := filepath.Join(baseDir, "tmp_dogfood_proposal.json")
-		propData, _ := json.Marshal(prop)
-		os.WriteFile(tmpProp, propData, 0644)
-		defer os.Remove(tmpProp)
-		
-		fmt.Println("4. Evaluating proposal through HowlFrame policy...")
-		res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
-		if err != nil {
-			fmt.Printf("Evaluation error: %v\n", err)
-			os.Exit(1)
-		}
-		
-		decision := res["decision"].(string)
-		reason := res["reason"].(string)
-		
-		fmt.Printf("5. Policy Decision: %s\n", decision)
-		fmt.Printf("   Reason: %s\n", reason)
-		
-		if decision == "REQUIRE_APPROVAL" {
-			decisionID := fmt.Sprintf("decision-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%s-%d", prop.Action, ev.Revision, time.Now().UnixNano()))))[:16]
-			fmt.Printf("\nBOUNDARY: Human approval required. Cannot silently self-approve.\n")
-			fmt.Printf("Use 'changeops approve %s' to authorize this proposal.\n", decisionID)
-			
-			// Save decision
-			var gates []Gate
-			if g, ok := res["gates"].([]interface{}); ok {
-				for _, item := range g {
-					if m, ok := item.(map[string]interface{}); ok {
-						gates = append(gates, Gate{Name: m["name"].(string), Status: m["status"].(string)})
-					}
-				}
-			}
-			dec := Decision{
-				ID:              decisionID,
-				Proposal:        prop,
-				Evidence:        ev,
-				RuntimeEvidence: rtEv,
-				Gates:           gates,
-				Result:          decision,
-				Reason:          reason,
-			}
-			dec.Digest = computeDecisionDigest(dec)
-			decData, _ := json.MarshalIndent(dec, "", "  ")
-			os.WriteFile(filepath.Join(decisionsDir, dec.ID+".json"), decData, 0644)
-			
-			appendAudit(map[string]interface{}{"event": "dogfood", "decision": dec})
-		} else {
-			fmt.Println("\nBOUNDARY CHECK: Failed to reach REQUIRE_APPROVAL. Is evidence passing?")
 		}
 
 	case "evaluate":
@@ -642,25 +492,25 @@ func main() {
 		proposalFile := os.Args[2]
 		propData, err := os.ReadFile(proposalFile)
 		if err != nil {
-			fmt.Printf("Error reading proposal: %v\n", err)
+			fmt.Printf("Error reading proposal: %v\\n", err)
 			os.Exit(1)
 		}
 		var prop Proposal
 		if err := json.Unmarshal(propData, &prop); err != nil {
-			fmt.Printf("Error parsing proposal: %v\n", err)
+			fmt.Printf("Error parsing proposal: %v\\n", err)
 			os.Exit(1)
 		}
 
 		repoCfg, ok := cfg.Repos[prop.Repo]
 		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", prop.Repo)
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\\n", prop.Repo)
 			os.Exit(1)
 		}
 
 		ev, rtEv := gatherEvidence(prop.Repo, repoCfg.Path, repoCfg, configDigest)
 		res, err := invokeHowlFrame(proposalFile, ev, rtEv, repoCfg)
 		if err != nil {
-			fmt.Printf("Evaluation error: %v\n", err)
+			fmt.Printf("Evaluation error: %v\\n", err)
 			os.Exit(1)
 		}
 
@@ -689,12 +539,12 @@ func main() {
 		}
 		dec.Digest = computeDecisionDigest(dec)
 
-		fmt.Printf("Decision: %s\nReason: %s\n", dec.Result, dec.Reason)
+		fmt.Printf("Decision: %s\\nReason: %s\\n", dec.Result, dec.Reason)
 
 		if dec.Result == "REQUIRE_APPROVAL" {
 			decData, _ := json.MarshalIndent(dec, "", "  ")
 			os.WriteFile(filepath.Join(decisionsDir, dec.ID+".json"), decData, 0644)
-			fmt.Printf("Decision saved as %s. Use 'changeops approve %s' to approve.\n", dec.ID, dec.ID)
+			fmt.Printf("Decision saved as %s. Use 'changeops approve %s' to approve.\\n", dec.ID, dec.ID)
 		}
 
 		appendAudit(map[string]interface{}{
@@ -711,7 +561,7 @@ func main() {
 		decFile := filepath.Join(decisionsDir, decID+".json")
 		decData, err := os.ReadFile(decFile)
 		if err != nil {
-			fmt.Printf("Decision not found: %v\n", err)
+			fmt.Printf("Decision not found: %v\\n", err)
 			os.Exit(1)
 		}
 		var dec Decision
@@ -730,7 +580,7 @@ func main() {
 		now := time.Now().UTC()
 		app := Approval{
 			Schema:         "changeops.approval/v1",
-			ApprovalID:     fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%d", dec.ID, now.UnixNano()))))[:16],
+			ApprovalID     fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%d", dec.ID, now.UnixNano()))))[:16],
 			DecisionID:     dec.ID,
 			DecisionDigest: dec.Digest,
 			EvidenceDigest: dec.RuntimeEvidence.EvidenceDigest,
@@ -748,7 +598,7 @@ func main() {
 		appFile := filepath.Join(approvalsDir, dec.ID+".json")
 		os.WriteFile(appFile, appData, 0644)
 		
-		fmt.Printf("Decision %s approved.\n", decID)
+		fmt.Printf("Decision %s approved.\\n", decID)
 		appendAudit(map[string]interface{}{
 			"event":       "approve",
 			"decision_id": decID,
@@ -764,7 +614,7 @@ func main() {
 		decFile := filepath.Join(decisionsDir, decID+".json")
 		decData, err := os.ReadFile(decFile)
 		if err != nil {
-			fmt.Printf("Decision not found: %v\n", err)
+			fmt.Printf("Decision not found: %v\\n", err)
 			os.Exit(1)
 		}
 		var dec Decision
@@ -782,12 +632,15 @@ func main() {
 
 		repoCfg, ok := cfg.Repos[dec.Proposal.Repo]
 		if !ok {
-			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", dec.Proposal.Repo)
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\\n", dec.Proposal.Repo)
 			os.Exit(1)
 		}
 
 		// Gather current evidence to check for staleness
-		_, rtEv := gatherEvidence(dec.Proposal.Repo, repoCfg.Path, repoCfg, configDigest)
+		ev, rtEv := gatherEvidence(dec.Proposal.Repo, repoCfg.Path, repoCfg, configDigest)
+		
+		// If cache was missed, ev would have a new GeneratedAt which makes it a different EvidenceEnvelope, but the content checks should match what was in the decision if it's the exact same revision.
+		// However, HowlFrame will just re-evaluate.
 		
 		key := getApprovalKey()
 		if key == nil {
@@ -820,14 +673,14 @@ func main() {
 		os.WriteFile(tmpProp, propData, 0644)
 		defer os.Remove(tmpProp)
 
-		res, err := invokeHowlFrame(tmpProp, dec.Evidence, rtEv, repoCfg)
+		res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
 		if err != nil {
-			fmt.Printf("Execution evaluation error: %v\n", err)
+			fmt.Printf("Execution evaluation error: %v\\n", err)
 			os.Exit(1)
 		}
 
 		if res["decision"].(string) != "ALLOW" {
-			fmt.Printf("Execution DENIED: %s. Reason: %s\n", res["decision"], res["reason"])
+			fmt.Printf("Execution DENIED: %s. Reason: %s\\n", res["decision"], res["reason"])
 			if strings.Contains(res["reason"].(string), "STALE_EVIDENCE") {
 				fmt.Println("STALE_EVIDENCE")
 			}
@@ -835,15 +688,15 @@ func main() {
 		}
 
 		// Perform bounded action
-		fmt.Printf("Executing action: %s\n", dec.Proposal.Action)
+		fmt.Printf("Executing action: %s\\n", dec.Proposal.Action)
 		success := false
 		if dec.Proposal.Action == "create_release_candidate" {
 			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
 			out, err := gitCommand(repoCfg.Path, "tag", "-a", tag, "-m", "ChangeOps RC", rtEv.CurrentRevision)
 			if err != nil {
-				fmt.Printf("Failed to create RC tag: %v\n%s\n", err, out)
+				fmt.Printf("Failed to create RC tag: %v\\n%s\\n", err, out)
 			} else {
-				fmt.Printf("Created tag: %s\n", tag)
+				fmt.Printf("Created tag: %s\\n", tag)
 				verify, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
 				if verify != "" {
 					fmt.Println("Verified: tag created successfully.")
@@ -852,31 +705,16 @@ func main() {
 					fmt.Println("Verification failed: tag not found.")
 				}
 			}
-				} else if dec.Proposal.Action == "create_github_draft_release" {
-			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
-			out, err := runGH(repoCfg.Path, "release", "create", tag, "--target", rtEv.CurrentRevision, "--draft", "--title", "Release Candidate "+tag, "--notes", "Automated RC via ChangeOps")
-			if err != nil {
-				fmt.Printf("Failed to create GitHub release: %v\n%s\n", err, out)
-			} else {
-				fmt.Printf("Created GitHub release: %s\n", tag)
-				verify, _ := runGH(repoCfg.Path, "release", "view", tag)
-				if verify != "" {
-					fmt.Println("Verified: GitHub release created successfully.")
-					success = true
-				} else {
-					fmt.Println("Verification failed: GitHub release not found.")
-				}
-			}
-} else if dec.Proposal.Action == "record_release_ready" {
+		} else if dec.Proposal.Action == "record_release_ready" {
 			fmt.Println("Recorded release ready.")
 			success = true
 		} else if dec.Proposal.Action == "rollback_release_candidate" {
 			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
 			out, err := gitCommand(repoCfg.Path, "tag", "-d", tag)
 			if err != nil {
-				fmt.Printf("Failed to rollback RC tag: %v\n%s\n", err, out)
+				fmt.Printf("Failed to rollback RC tag: %v\\n%s\\n", err, out)
 			} else {
-				fmt.Printf("Rolled back tag: %s\n", tag)
+				fmt.Printf("Rolled back tag: %s\\n", tag)
 				tags, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
 				if tags == "" {
 					fmt.Println("Verified: tag removed.")
@@ -886,7 +724,7 @@ func main() {
 				}
 			}
 		} else {
-			fmt.Printf("ACTION_NOT_ALLOWED: %s\n", dec.Proposal.Action)
+			fmt.Printf("ACTION_NOT_ALLOWED: %s\\n", dec.Proposal.Action)
 		}
 
 		if success {
@@ -937,20 +775,25 @@ func main() {
 		decFile := filepath.Join(decisionsDir, decID+".json")
 		decData, err := os.ReadFile(decFile)
 		if err != nil {
-			fmt.Printf("Decision not found: %v\n", err)
+			fmt.Printf("Decision not found: %v\\n", err)
 			os.Exit(1)
 		}
 		var dec Decision
 		json.Unmarshal(decData, &dec)
 
-		fmt.Printf("Decision: %s\nAction: %s\nRepo: %s\nRevision: %s\n\nGates:\n", dec.Result, dec.Proposal.Action, dec.Proposal.Repo, dec.Evidence.Revision)
+		fmt.Printf("Decision: %s\\nAction: %s\\nRepo: %s\\nRevision: %s\\n\\nGates:\\n", dec.Result, dec.Proposal.Action, dec.Proposal.Repo, dec.Evidence.Revision)
 		for _, g := range dec.Gates {
-			fmt.Printf("  - %s: %s\n", g.Name, g.Status)
+			fmt.Printf("  - %s: %s\\n", g.Name, g.Status)
 		}
-		fmt.Printf("\nReason: %s\n", dec.Reason)
+		fmt.Printf("\\nReason: %s\\n", dec.Reason)
 
 	default:
-		fmt.Printf("Unknown command: %s\n", cmd)
+		fmt.Printf("Unknown command: %s\\n", cmd)
 		os.Exit(1)
 	}
 }
+"""
+
+with open("build_main.py", "w") as f:
+    f.write('with open("adapter/main.go", "w") as f:\n')
+    f.write('    f.write("""' + content + '""")\n')

@@ -1,0 +1,9 @@
+{
+  "action": "create_release_candidate",
+  "repo": "testrepo",
+  "reason": "Test self approval",
+  "confidence": 0.9,
+  "approved": true,
+  "admin": true,
+  "override": true
+}

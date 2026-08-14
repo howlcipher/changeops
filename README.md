@@ -16,9 +16,30 @@ ChangeOps bridges the gap between AI proposals and production reality using boun
 6. **Execute**: `changeops execute <decision_id>` performs a bounded action (like creating a local Git tag) *only* if the repo's evidence is not stale (`STALE_EVIDENCE`) and the approval hasn't already been consumed.
 
 ## Architecture
-ChangeOps consists of two core boundaries:
-1. **The Policy Authority (HowlFrame)**: `changeops.howl` compiles into `changeops.hfbc`. It parses inputs, consumes evidence, checks conditions, and enforces transitions resulting in `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`. 
-2. **The Host Adapter (Go)**: The Go application handles Git inspection, executes bounded commands securely, and invokes the HowlFrame runtime under strict sandbox capabilities. 
+ChangeOps uses bounded execution to maintain clear boundaries between AI proposals and production reality.
+
+```text
+AI / User
+   ↓ proposes
+ChangeOps
+   ↓ gathers trusted evidence (Git / GitHub)
+HowlFrame
+   ↓
+ALLOW / DENY / REQUIRE_APPROVAL
+   ↓
+Human Approval
+   ↓
+Evidence Revalidation
+   ↓
+Bounded GitHub Action
+   ↓
+Post-Action Verification
+   ↓
+Audit Trail
+```
+
+1. **The Policy Authority (HowlFrame)**: `changeops.howl` compiles into `changeops.hfbc`. It parses inputs, consumes local and remote evidence, checks conditions, and enforces transitions resulting in `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`. 
+2. **The Host Adapter (Go)**: The Go application handles Git/GitHub inspection, executes bounded commands securely, and invokes the HowlFrame runtime under strict sandbox capabilities. 
 
 ## Intent is not authority
 Proposals dictating actions, logic overrides, or fake approval metrics (like passing `"approved": true`) within the JSON payload are categorically rejected. AI dictates the proposition; HowlFrame owns the authorization machinery.

@@ -1,0 +1,6 @@
+{
+  "action": "create_release_candidate; rm -rf /",
+  "repo": "testrepo",
+  "reason": "inject",
+  "confidence": 0.9
+}

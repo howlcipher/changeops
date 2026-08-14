@@ -63,3 +63,50 @@ No absolute blockers.
 ## What should HowlFrame improve next based ONLY on this evidence?
 1. Enhanced standard library components for CLI argument parsing.
 2. Align `howlframe` help text CLI syntax representation regarding capability flags.
+3. Add a flatter variable assignment system (like `assign` or block scope).
+
+---
+
+## Phase 2-5 Update: Self-Dogfooding and Remote Evidence
+
+### What we attempted
+- Self-dogfooding: allowing ChangeOps to safely evaluate its own repository.
+- GitHub Remote Evidence: securely gathering repository state (like branch SHAs, CI status, existing releases) via `gh` CLI.
+- Remote stale-evidence protection (`STALE_REMOTE_EVIDENCE`).
+- One bounded remote operation: `create_github_draft_release`.
+
+### What worked naturally
+- The determinism. Being able to rely completely on the HowlFrame `.hfbc` artifact to reject stale remote evidence (`ev_remote_head != ev_current_remote_head`) without rewriting the logic in Go is very powerful.
+- Integrating external shell commands (like `gh` CLI) into the Go adapter while maintaining HowlFrame as the ultimate policy authority.
+
+### What was awkward
+- Nesting `let` statements in `.howl`. With the addition of remote variables, `changeops.howl` now has 33 nested `let` statements, severely challenging bracket management (we hit compiler `Expected ')'` errors during development).
+
+### What failed
+- Nothing failed at the boundary layer. All adversarial attempts to subvert the remote evidence or trigger path traversals were caught by HowlFrame and the Go adapter.
+
+### What HowlFrame changes were required
+0. We did not have to alter HowlFrame to support this integration.
+
+### What ChangeOps changes were required
+- Introduced `RemoteEvidence` to the `EvidenceEnvelope` in the Go adapter.
+- Plumbed 4 new remote variables to `changeops.howl` CLI arguments.
+- Updated `changeops-config.json` to configure the ChangeOps repository itself for `changeops dogfood`.
+- Replaced adapter-level `go.mod` with a root-level `go.mod` to allow `go test ./...` to succeed correctly during self-validation.
+
+### Bugs discovered
+- The adapter `go test ./...` command previously assumed the `.git` root contained the `go.mod`, leading to validation failure until fixed.
+
+### Missing primitives discovered
+- Application level: None.
+- Language level: Flat/block-scoped variable assignment in HowlFrame to avoid infinite nesting.
+
+### Before/after architecture
+- **Before:** ChangeOps managed only local Git evidence, evaluating local branches and executing local git tags.
+- **After:** ChangeOps manages both local Git and remote GitHub evidence (`gh`), enforcing TOCTOU protections for both boundaries.
+
+### Metrics
+- **Lines of `.howl`**: 265
+- **Number of policy decisions**: 4 possible bounded actions evaluated
+- **Adversarial cases tested**: 7 core categories covered (dirty repo, replay, path traversal, command injection, stale local evidence, stale remote evidence protection, self-approval override).
+- **Places where host adapter was required**: GitHub evidence gathering via `gh` CLI and the physical `create_github_draft_release` side-effect.

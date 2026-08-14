@@ -89,3 +89,26 @@ echo "Executing second time..."
 if changeops execute $DECISION_ID 2>&1 | grep -q "DENIED: Decision already executed"; then echo "PASS: Replay prevented"; else echo "FAIL: replay allowed"; exit 1; fi
 
 echo "Adversarial tests passed."
+
+echo "=== Scenario: Path Traversal ==="
+cat <<PROPOSAL > tests/proposal_path_traversal.json
+{
+  "action": "create_release_candidate",
+  "repo": "../testrepo",
+  "reason": "path traversal",
+  "confidence": 0.9
+}
+PROPOSAL
+changeops evaluate tests/proposal_path_traversal.json | grep -q "UNKNOWN_REPOSITORY" && echo "PASS: Path traversal rejected" || { echo "FAIL: Path traversal allowed"; exit 1; }
+
+echo "=== Scenario: Command Injection ==="
+cat <<PROPOSAL > tests/proposal_cmd_inject.json
+{
+  "action": "create_release_candidate; rm -rf /",
+  "repo": "testrepo",
+  "reason": "inject",
+  "confidence": 0.9
+}
+PROPOSAL
+changeops evaluate tests/proposal_cmd_inject.json | grep -q "DENY" && echo "PASS: Command injection action rejected" || { echo "FAIL: Command injection allowed"; exit 1; }
+

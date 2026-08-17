@@ -40,12 +40,31 @@
             </div>
         </header>
 
+        <nav class="section-nav" aria-label="Page sections">
+            <span class="section-nav-label">READ_PATH:</span>
+            <a href="#overview">Start here</a>
+            <a href="#authority-boundary">Authority</a>
+            <a href="#release-flow">Workflow</a>
+            <a href="#security-model">Security</a>
+            <a href="#current-status">Status</a>
+        </nav>
+
         <main id="main-content">
             <section id="overview">
                 <h2>Overview</h2>
-                <p>ChangeOps is an experimental AI-aware Git and release controller built on HowlFrame. AI or humans may propose operational changes, but they cannot authorize them.</p>
-                <blockquote><strong>Intent is not authority.</strong> The proposal describes what is wanted. It does not grant permission to do it.</blockquote>
-                <p>ChangeOps gathers trusted state and evidence. HowlFrame independently determines whether the requested transition is <code>ALLOW</code>, <code>DENY</code>, or <code>REQUIRE_APPROVAL</code>. Only then can the trusted Go executor perform one bounded operation.</p>
+                <div class="overview-layout">
+                    <div>
+                        <p class="lead">ChangeOps is an experimental AI-aware Git and release controller built on HowlFrame. AI or humans may propose operational changes, but they cannot authorize them.</p>
+                        <blockquote><strong>Intent is not authority.</strong> The proposal describes what is wanted. It does not grant permission to do it.</blockquote>
+                        <p>ChangeOps gathers trusted state and evidence. HowlFrame independently determines whether the requested transition is <code>ALLOW</code>, <code>DENY</code>, or <code>REQUIRE_APPROVAL</code>. Only then can the trusted Go executor perform one bounded operation.</p>
+                    </div>
+                    <div class="signal-grid" aria-label="ChangeOps operating model">
+                        <div><strong>PROPOSE</strong><span>AI or human intent</span></div>
+                        <div><strong>CHECK</strong><span>Trusted evidence</span></div>
+                        <div><strong>DECIDE</strong><span>HowlFrame policy</span></div>
+                        <div><strong>EXECUTE</strong><span>One bounded effect</span></div>
+                    </div>
+                </div>
             </section>
 
             <section id="authority-boundary">

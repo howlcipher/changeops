@@ -9,6 +9,7 @@ git config user.email "test@example.com"
 echo "package main; func main() {}" > main.go
 go mod init testrepo
 echo "testrepo" > .gitignore
+echo ".changeops" >> .gitignore
 git add main.go go.mod .gitignore
 git commit -m "add go mock profile"
 git branch -m main
@@ -23,6 +24,7 @@ dd if=/dev/urandom of="$TEMP_KEY" bs=32 count=1 2>/dev/null
 chmod 600 "$TEMP_KEY"
 export CHANGEOPS_APPROVAL_KEY_FILE="$TEMP_KEY"
 
+mkdir -p config
 cat <<EOF > config/changeops-config.json
 {
   "repos": {
@@ -50,9 +52,9 @@ EOF
 
 changeops validate testrepo
 DECISION_ID=$(changeops evaluate tests/proposal_adv.json | grep "Decision saved as" | awk '{print $4}' | tr -d '.')
-changeops approve $DECISION_ID
+changeops approve "$DECISION_ID"
 
-APPROVAL_FILE=".changeops/approvals/${DECISION_ID}.json"
+APPROVAL_FILE="$CHANGEOPS_BASE/approvals/${DECISION_ID}.json"
 
 # Helper to test modification
 test_mod() {

@@ -117,14 +117,16 @@ type Approval struct {
 }
 
 type ExecutionReceipt struct {
-	Schema       string `json:"schema"`
-	DecisionID   string `json:"decision_id"`
-	ApprovalID   string `json:"approval_id"`
-	Action       string `json:"action"`
-	Repo         string `json:"repo"`
-	Revision     string `json:"revision"`
-	ExecutedAt   string `json:"executed_at"`
-	Verification string `json:"verification"`
+	Schema         string `json:"schema"`
+	DecisionID     string `json:"decision_id"`
+	ApprovalID     string `json:"approval_id"`
+	Action         string `json:"action"`
+	Repo           string `json:"repo"`
+	Revision       string `json:"revision"`
+	ExecutedAt     string `json:"executed_at"`
+	Verification   string `json:"verification"`
+	RollbackStatus string `json:"rollback_status,omitempty"`
+	ErrorMessage   string `json:"error_message,omitempty"`
 }
 
 var (
@@ -136,6 +138,14 @@ var (
 )
 
 func initDirs() {
+	if b := os.Getenv("CHANGEOPS_BASE"); b != "" {
+		baseDir = b
+		decisionsDir = filepath.Join(baseDir, "decisions")
+		approvalsDir = filepath.Join(baseDir, "approvals")
+		receiptsDir = filepath.Join(baseDir, "receipts")
+		historyFile = filepath.Join(baseDir, "history.jsonl")
+	}
+	os.MkdirAll(baseDir, 0755)
 	os.MkdirAll(decisionsDir, 0755)
 	os.MkdirAll(approvalsDir, 0755)
 	os.MkdirAll(receiptsDir, 0755)
@@ -152,6 +162,36 @@ func loadConfig() (*Config, string, error) {
 	}
 	digest := fmt.Sprintf("%x", sha256.Sum256(data))
 	return &cfg, digest, nil
+}
+
+func validateRepoIdentifier(name string) error {
+	if name == "" {
+		return fmt.Errorf("repository identifier cannot be empty")
+	}
+	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("invalid repository identifier: path traversal detected")
+	}
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+			return fmt.Errorf("invalid repository identifier character %q", r)
+		}
+	}
+	return nil
+}
+
+func validateActionName(action string) error {
+	if action == "" {
+		return fmt.Errorf("action name cannot be empty")
+	}
+	if strings.ContainsAny(action, ";|&$`\n\r<>(){}") {
+		return fmt.Errorf("invalid action name: prohibited shell metacharacters detected")
+	}
+	for _, r := range action {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+			return fmt.Errorf("invalid action name character %q", r)
+		}
+	}
+	return nil
 }
 
 func getApprovalKey() []byte {
@@ -191,7 +231,7 @@ func computeDecisionDigest(d Decision) string {
 func gitCommand(repoPath string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = repoPath
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -290,6 +330,8 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 		workingTree = "clean"
 	}
 
+	freshRemote := gatherRemoteEvidence(repoPath, branch, rev)
+
 	ev := EvidenceEnvelope{
 		Schema: "changeops.evidence/v1",
 		Repo: repoID,
@@ -301,9 +343,8 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 		ConfigDigest: configDigest,
 		Checks: make(map[string]ValidationResult),
 		Risk: computeRisk(repoPath, rev),
+		Remote: freshRemote,
 	}
-
-	ev.Remote = gatherRemoteEvidence(repoPath, branch, rev)
 
 	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s", repoID, rev, repoCfg.ValidationProfile, configDigest))))
 	cacheFile := filepath.Join(baseDir, fmt.Sprintf("evidence_%s.json", cacheKey))
@@ -328,7 +369,7 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 		WorkingTree: workingTree,
 		CandidateExists: candidateExists,
 		Approved: "false",
-		RemoteHEAD: ev.Remote.RemoteHEAD,
+		RemoteHEAD: freshRemote.RemoteHEAD,
 		EvidenceDigest: computeEvidenceDigest(ev),
 	}
 	if ev.GeneratedAt != "" {
@@ -434,6 +475,12 @@ func invokeHowlFrame(proposalFile string, ev EvidenceEnvelope, rtEv RuntimeEvide
 	args = append(args, fmt.Sprintf("risk_deps=%t", ev.Risk.ContainsDependency))
 	args = append(args, fmt.Sprintf("risk_ci=%t", ev.Risk.ContainsCI))
 
+	// Remote parameters
+	args = append(args, fmt.Sprintf("remote_head=%s", ev.Remote.RemoteHEAD))
+	args = append(args, fmt.Sprintf("current_remote_head=%s", rtEv.RemoteHEAD))
+	args = append(args, fmt.Sprintf("local_remote_match=%t", ev.Remote.LocalRemoteMatch))
+	args = append(args, fmt.Sprintf("ci_status=%s", ev.Remote.CIStatus))
+
 	cmd := exec.Command("howlframe", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -478,6 +525,10 @@ func main() {
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
+		if err := validateRepoIdentifier(repoID); err != nil {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			os.Exit(1)
+		}
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
 			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
@@ -497,6 +548,10 @@ func main() {
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
+		if err := validateRepoIdentifier(repoID); err != nil {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			os.Exit(1)
+		}
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
 			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
@@ -510,6 +565,10 @@ func main() {
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
+		if err := validateRepoIdentifier(repoID); err != nil {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			os.Exit(1)
+		}
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
 			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
@@ -519,10 +578,9 @@ func main() {
 		
 		actions := []string{
 			"create_release_candidate",
+			"create_github_draft_release",
 			"record_release_ready",
 			"rollback_release_candidate",
-			"promote_staging",
-			"promote_production",
 		}
 		
 		tmpProp := filepath.Join(baseDir, "tmp_plan.json")
@@ -561,6 +619,10 @@ func main() {
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
+		if err := validateRepoIdentifier(repoID); err != nil {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
+			os.Exit(1)
+		}
 		repoCfg, ok := cfg.Repos[repoID]
 		if !ok {
 			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", repoID)
@@ -648,6 +710,16 @@ func main() {
 		var prop Proposal
 		if err := json.Unmarshal(propData, &prop); err != nil {
 			fmt.Printf("Error parsing proposal: %v\n", err)
+			os.Exit(1)
+		}
+
+		if err := validateActionName(prop.Action); err != nil {
+			fmt.Println("DENY: Invalid proposal action name format")
+			os.Exit(1)
+		}
+
+		if err := validateRepoIdentifier(prop.Repo); err != nil {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", prop.Repo)
 			os.Exit(1)
 		}
 
@@ -774,9 +846,19 @@ func main() {
 			os.Exit(1)
 		}
 		
-		// Replay protection
-		if _, err := os.Stat(filepath.Join(receiptsDir, dec.ID+".json")); err == nil {
-			fmt.Println("DENIED: Decision already executed")
+		// Replay protection - check existing receipts
+		receiptFile := filepath.Join(receiptsDir, decID+".json")
+		if recData, err := os.ReadFile(receiptFile); err == nil {
+			var prevRec ExecutionReceipt
+			if json.Unmarshal(recData, &prevRec) == nil {
+				if prevRec.Verification == "PASS" {
+					fmt.Println("DENIED: Decision already executed successfully")
+				} else {
+					fmt.Printf("DENIED: Decision previously failed execution with verification %s (rollback: %s)\n", prevRec.Verification, prevRec.RollbackStatus)
+				}
+			} else {
+				fmt.Println("DENIED: Decision already executed")
+			}
 			os.Exit(1)
 		}
 
@@ -796,9 +878,9 @@ func main() {
 		}
 
 		// Check for valid approval
+		var app Approval
 		appFile := filepath.Join(approvalsDir, decID+".json")
 		if appData, err := os.ReadFile(appFile); err == nil {
-			var app Approval
 			json.Unmarshal(appData, &app)
 			if app.Signature == signApproval(app, key) && app.DecisionDigest == dec.Digest {
 				exp, _ := time.Parse(time.RFC3339, app.ExpiresAt)
@@ -828,96 +910,260 @@ func main() {
 
 		if res["decision"].(string) != "ALLOW" {
 			fmt.Printf("Execution DENIED: %s. Reason: %s\n", res["decision"], res["reason"])
-			if strings.Contains(res["reason"].(string), "STALE_EVIDENCE") {
+			if strings.Contains(res["reason"].(string), "STALE_REMOTE_EVIDENCE") {
+				fmt.Println("STALE_REMOTE_EVIDENCE")
+			} else if strings.Contains(res["reason"].(string), "STALE_EVIDENCE") {
 				fmt.Println("STALE_EVIDENCE")
 			}
 			os.Exit(1)
 		}
 
-		// Perform bounded action
+		// Perform bounded action with post-action verification and rollback recovery
 		fmt.Printf("Executing action: %s\n", dec.Proposal.Action)
 		success := false
+		verificationPassed := false
+		rollbackStatus := "NOT_NEEDED"
+		var execErr error
+
 		if dec.Proposal.Action == "create_release_candidate" {
 			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
 			out, err := gitCommand(repoCfg.Path, "tag", "-a", tag, "-m", "ChangeOps RC", rtEv.CurrentRevision)
 			if err != nil {
-				fmt.Printf("Failed to create RC tag: %v\n%s\n", err, out)
+				execErr = fmt.Errorf("failed to create RC tag: %w (%s)", err, out)
+				fmt.Println(execErr)
 			} else {
 				fmt.Printf("Created tag: %s\n", tag)
-				verify, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
-				if verify != "" {
+				verifyTag, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
+				tagRev, _ := gitCommand(repoCfg.Path, "rev-parse", "-q", "--verify", fmt.Sprintf("refs/tags/%s^{commit}", tag))
+				if verifyTag == tag && strings.HasPrefix(tagRev, rtEv.CurrentRevision[:7]) {
 					fmt.Println("Verified: tag created successfully.")
+					verificationPassed = true
 					success = true
 				} else {
-					fmt.Println("Verification failed: tag not found.")
+					execErr = fmt.Errorf("verification failed: tag verification mismatch (expected %s on rev %s, got tag=%q rev=%q)", tag, rtEv.CurrentRevision[:7], verifyTag, tagRev)
+					fmt.Println(execErr)
+					// Automated rollback
+					fmt.Printf("Initiating automated rollback for %s...\n", tag)
+					rbOut, rbErr := gitCommand(repoCfg.Path, "tag", "-d", tag)
+					if rbErr == nil {
+						rbVerify, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
+						if rbVerify == "" {
+							fmt.Println("Rollback succeeded: invalid tag removed.")
+							rollbackStatus = "EXECUTED"
+						} else {
+							fmt.Printf("Rollback verification failed: tag %s still present\n", tag)
+							rollbackStatus = "FAILED"
+						}
+					} else {
+						fmt.Printf("Rollback failed: %v (%s)\n", rbErr, rbOut)
+						rollbackStatus = "FAILED"
+					}
 				}
 			}
-				} else if dec.Proposal.Action == "create_github_draft_release" {
+		} else if dec.Proposal.Action == "create_github_draft_release" {
 			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
 			out, err := runGH(repoCfg.Path, "release", "create", tag, "--target", rtEv.CurrentRevision, "--draft", "--title", "Release Candidate "+tag, "--notes", "Automated RC via ChangeOps")
 			if err != nil {
-				fmt.Printf("Failed to create GitHub release: %v\n%s\n", err, out)
+				execErr = fmt.Errorf("failed to create GitHub release: %w (%s)", err, out)
+				fmt.Println(execErr)
 			} else {
 				fmt.Printf("Created GitHub release: %s\n", tag)
 				verify, _ := runGH(repoCfg.Path, "release", "view", tag)
-				if verify != "" {
+				if verify != "" && !strings.Contains(verify, "release not found") {
 					fmt.Println("Verified: GitHub release created successfully.")
+					verificationPassed = true
 					success = true
 				} else {
-					fmt.Println("Verification failed: GitHub release not found.")
+					execErr = fmt.Errorf("verification failed: GitHub release not found")
+					fmt.Println(execErr)
+					// Automated rollback
+					fmt.Printf("Initiating automated rollback for release %s...\n", tag)
+					rbOut, rbErr := runGH(repoCfg.Path, "release", "delete", tag, "-y")
+					if rbErr == nil {
+						fmt.Println("Rollback succeeded: draft release deleted.")
+						rollbackStatus = "EXECUTED"
+					} else {
+						fmt.Printf("Rollback failed: %v (%s)\n", rbErr, rbOut)
+						rollbackStatus = "FAILED"
+					}
 				}
 			}
-} else if dec.Proposal.Action == "record_release_ready" {
+		} else if dec.Proposal.Action == "record_release_ready" {
 			fmt.Println("Recorded release ready.")
+			verificationPassed = true
 			success = true
 		} else if dec.Proposal.Action == "rollback_release_candidate" {
 			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
 			out, err := gitCommand(repoCfg.Path, "tag", "-d", tag)
 			if err != nil {
-				fmt.Printf("Failed to rollback RC tag: %v\n%s\n", err, out)
+				execErr = fmt.Errorf("failed to rollback RC tag: %w (%s)", err, out)
+				fmt.Println(execErr)
 			} else {
 				fmt.Printf("Rolled back tag: %s\n", tag)
 				tags, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
 				if tags == "" {
 					fmt.Println("Verified: tag removed.")
+					verificationPassed = true
 					success = true
+					rollbackStatus = "EXECUTED"
 				} else {
-					fmt.Println("Verification failed: tag still exists.")
+					execErr = fmt.Errorf("verification failed: tag still exists after rollback")
+					fmt.Println(execErr)
+					rollbackStatus = "FAILED"
 				}
 			}
 		} else {
+			execErr = fmt.Errorf("action not allowed: %s", dec.Proposal.Action)
 			fmt.Printf("ACTION_NOT_ALLOWED: %s\n", dec.Proposal.Action)
 		}
 
-		if success {
-			// Create receipt
-			appFile := filepath.Join(approvalsDir, decID+".json")
-			var app Approval
-			if appData, err := os.ReadFile(appFile); err == nil {
-				json.Unmarshal(appData, &app)
+		// Always record an immutable ExecutionReceipt to prevent replay and capture audit truth
+
+		verStatus := "FAIL"
+		if verificationPassed {
+			verStatus = "PASS"
+		}
+		errMsg := ""
+		if execErr != nil {
+			errMsg = execErr.Error()
+		}
+
+		receipt := ExecutionReceipt{
+			Schema:         "changeops.execution_receipt/v1",
+			DecisionID:     decID,
+			ApprovalID:     app.ApprovalID,
+			Action:         dec.Proposal.Action,
+			Repo:           dec.Proposal.Repo,
+			Revision:       rtEv.CurrentRevision,
+			ExecutedAt:     time.Now().UTC().Format(time.RFC3339),
+			Verification:   verStatus,
+			RollbackStatus: rollbackStatus,
+			ErrorMessage:   errMsg,
+		}
+		recData, _ := json.MarshalIndent(receipt, "", "  ")
+		os.WriteFile(filepath.Join(receiptsDir, decID+".json"), recData, 0644)
+
+		appendAudit(map[string]interface{}{
+			"event":           "execute",
+			"decision_id":     decID,
+			"action":          dec.Proposal.Action,
+			"success":         success,
+			"verification":    verStatus,
+			"rollback_status": rollbackStatus,
+			"error":           errMsg,
+		})
+
+		if !success {
+			os.Exit(1)
+		}
+
+	case "rollback":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: changeops rollback <decision_id>")
+			os.Exit(1)
+		}
+		decID := os.Args[2]
+		decFile := filepath.Join(decisionsDir, decID+".json")
+		decData, err := os.ReadFile(decFile)
+		if err != nil {
+			fmt.Printf("Decision not found: %v\n", err)
+			os.Exit(1)
+		}
+		var dec Decision
+		if err := json.Unmarshal(decData, &dec); err != nil {
+			fmt.Printf("Error parsing decision: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Verify that this decision was previously executed
+		receiptFile := filepath.Join(receiptsDir, decID+".json")
+		recData, err := os.ReadFile(receiptFile)
+		if err != nil {
+			fmt.Printf("Cannot rollback: decision %s has not been executed.\n", decID)
+			os.Exit(1)
+		}
+		var rec ExecutionReceipt
+		json.Unmarshal(recData, &rec)
+		if rec.Verification != "PASS" {
+			fmt.Printf("Cannot rollback: decision %s did not successfully complete execution.\n", decID)
+			os.Exit(1)
+		}
+
+		if dec.Proposal.Action != "create_release_candidate" {
+			fmt.Printf("Rollback only applies to create_release_candidate decisions (found: %s).\n", dec.Proposal.Action)
+			os.Exit(1)
+		}
+
+		repoCfg, ok := cfg.Repos[dec.Proposal.Repo]
+		if !ok {
+			fmt.Printf("UNKNOWN_REPOSITORY: %s\n", dec.Proposal.Repo)
+			os.Exit(1)
+		}
+
+		tag := fmt.Sprintf("changeops/rc-%s", dec.Evidence.Revision[:7])
+		tagCheck, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
+		if tagCheck == "" {
+			fmt.Printf("Candidate tag %s does not exist; nothing to rollback.\n", tag)
+			os.Exit(1)
+		}
+
+		rbProp := Proposal{
+			Action:     "rollback_release_candidate",
+			Repo:       dec.Proposal.Repo,
+			Reason:     fmt.Sprintf("Rollback executed decision %s", decID),
+			Confidence: 1.0,
+		}
+
+		tmpProp := filepath.Join(baseDir, "tmp_rollback_proposal.json")
+		propData, _ := json.Marshal(rbProp)
+		os.WriteFile(tmpProp, propData, 0644)
+		defer os.Remove(tmpProp)
+
+		ev, rtEv := gatherEvidence(dec.Proposal.Repo, repoCfg.Path, repoCfg, configDigest)
+		res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
+		if err != nil {
+			fmt.Printf("Rollback evaluation error: %v\n", err)
+			os.Exit(1)
+		}
+
+		rbDecID := fmt.Sprintf("decision-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%s-%d", rbProp.Action, ev.Revision, time.Now().UnixNano()))))[:16]
+		var gates []Gate
+		if g, ok := res["gates"].([]interface{}); ok {
+			for _, item := range g {
+				if m, ok := item.(map[string]interface{}); ok {
+					gates = append(gates, Gate{
+						Name:   m["name"].(string),
+						Status: m["status"].(string),
+					})
+				}
 			}
-			receipt := ExecutionReceipt{
-				Schema:       "changeops.execution_receipt/v1",
-				DecisionID:   dec.ID,
-				ApprovalID:   app.ApprovalID,
-				Action:       dec.Proposal.Action,
-				Repo:         dec.Proposal.Repo,
-				Revision:     rtEv.CurrentRevision,
-				ExecutedAt:   time.Now().UTC().Format(time.RFC3339),
-				Verification: "PASS",
-			}
-			recData, _ := json.MarshalIndent(receipt, "", "  ")
-			os.WriteFile(filepath.Join(receiptsDir, dec.ID+".json"), recData, 0644)
-			
-			// We DO NOT remove the decision file to preserve audit history!
-			// We DO NOT remove the approval file to preserve audit history!
+		}
+
+		rbDec := Decision{
+			ID:              rbDecID,
+			Proposal:        rbProp,
+			Evidence:        ev,
+			RuntimeEvidence: rtEv,
+			Gates:           gates,
+			Result:          res["decision"].(string),
+			Reason:          res["reason"].(string),
+		}
+		rbDec.Digest = computeDecisionDigest(rbDec)
+
+		fmt.Printf("Rollback Decision: %s\nReason: %s\n", rbDec.Result, rbDec.Reason)
+		if rbDec.Result == "REQUIRE_APPROVAL" {
+			decData, _ := json.MarshalIndent(rbDec, "", "  ")
+			os.WriteFile(filepath.Join(decisionsDir, rbDec.ID+".json"), decData, 0644)
+			fmt.Printf("Rollback decision saved as %s. Use 'changeops approve %s' then 'changeops execute %s' to apply rollback.\n", rbDec.ID, rbDec.ID, rbDec.ID)
+		} else if rbDec.Result == "DENY" {
+			fmt.Printf("Rollback denied by policy: %s\n", rbDec.Reason)
+			os.Exit(1)
 		}
 
 		appendAudit(map[string]interface{}{
-			"event":       "execute",
-			"decision_id": decID,
-			"action":      dec.Proposal.Action,
-			"success":     success,
+			"event":             "rollback_propose",
+			"target_decision":   decID,
+			"rollback_decision": rbDec,
 		})
 
 	case "history":
@@ -948,6 +1194,22 @@ func main() {
 			fmt.Printf("  - %s: %s\n", g.Name, g.Status)
 		}
 		fmt.Printf("\nReason: %s\n", dec.Reason)
+
+		receiptFile := filepath.Join(receiptsDir, decID+".json")
+		if recData, err := os.ReadFile(receiptFile); err == nil {
+			var rec ExecutionReceipt
+			if json.Unmarshal(recData, &rec) == nil {
+				fmt.Printf("\nExecution Receipt:\n")
+				fmt.Printf("  - Executed At: %s\n", rec.ExecutedAt)
+				fmt.Printf("  - Verification: %s\n", rec.Verification)
+				if rec.RollbackStatus != "" {
+					fmt.Printf("  - Rollback Status: %s\n", rec.RollbackStatus)
+				}
+				if rec.ErrorMessage != "" {
+					fmt.Printf("  - Error: %s\n", rec.ErrorMessage)
+				}
+			}
+		}
 
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)

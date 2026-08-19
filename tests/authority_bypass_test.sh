@@ -2,6 +2,11 @@
 set -e
 
 # Setup test environment
+TEMP_KEY=$(mktemp)
+dd if=/dev/urandom of="$TEMP_KEY" bs=32 count=1 2>/dev/null
+chmod 600 "$TEMP_KEY"
+export CHANGEOPS_APPROVAL_KEY_FILE="$TEMP_KEY"
+
 mkdir -p config
 cat <<EOF > config/changeops-config.json
 {
@@ -10,7 +15,7 @@ cat <<EOF > config/changeops-config.json
       "path": "$(pwd)/tests/testrepo",
       "allowed_branches": ["main"],
       "validation_profile": "go",
-      "allowed_actions": ["record_release_ready"]
+      "allowed_actions": ["create_release_candidate"]
     }
   }
 }
@@ -48,7 +53,7 @@ EOF
 # evaluate on feature-branch
 ./changeops validate testrepo >/dev/null || true
 OUT=$(./changeops evaluate tests/prop.json) || true
-if echo "$OUT" | grep -q "DENY\|branch"; then
+if echo "$OUT" | grep -q "branch not permitted"; then
   echo "  PASS: Stopped by branch policy"
 else
   echo "  FAIL: Allowed branch not enforced. Output: $OUT"
@@ -57,10 +62,22 @@ fi
 
 # Test 2: Action bypass
 echo "Test 2: Action bypass"
+cat <<EOF > config/changeops-config.json
+{
+  "repos": {
+    "testrepo": {
+      "path": "$(pwd)/tests/testrepo",
+      "allowed_branches": ["main"],
+      "validation_profile": "go",
+      "allowed_actions": ["record_release_ready"]
+    }
+  }
+}
+EOF
 cd tests/testrepo && git checkout main && cd ../..
 ./changeops validate testrepo >/dev/null || true
 OUT=$(./changeops evaluate tests/prop.json) || true
-if echo "$OUT" | grep -q "DENY\|action"; then
+if echo "$OUT" | grep -q "action not permitted"; then
   echo "  PASS: Stopped by action policy"
 else
   echo "  FAIL: Allowed action not enforced. Output: $OUT"
@@ -121,6 +138,9 @@ if echo "$OUT2" | grep -q "Created tag"; then
 else
   echo "  PASS: Decision mutation caught. Output: $OUT2"
 fi
+
+# Cleanup test repos
+rm -rf tests/testrepo tests/testrepo2 tests/prop.json config/changeops-config.json
 
 if [ $FAILURES -eq 0 ]; then
   echo "ALL PASSED"

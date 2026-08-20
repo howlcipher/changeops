@@ -1,4 +1,8 @@
 /changeops
+/howlchangeops
 /changeops.hfbc
+/howlchangeops.hfbc
 /.changeops/
+/.howlchangeops/
 config/changeops-config.json
+config/howlchangeops-config.json

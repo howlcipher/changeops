@@ -1,8 +1,8 @@
-name: ChangeOps CI
+name: HowlChangeOps CI
 
 on:
   push:
-    branches: [ "main", "agent/changeops-v01" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -28,15 +28,21 @@ jobs:
     - name: Build adapter
       run: |
         cd adapter
-        go build -o ../changeops
+        go build -o ../howlchangeops
+        cd ..
+        ln -sf howlchangeops changeops
 
     - name: HowlFrame check and build
       run: |
-        howlframe check src/changeops.howl
-        howlframe build src/changeops.howl
+        howlframe check src/howlchangeops.howl
+        howlframe build src/howlchangeops.howl
+        ln -sf howlchangeops.hfbc changeops.hfbc
 
     - name: Integration tests
       run: bash tests/integration_test.sh
 
     - name: Adversarial tests
       run: bash tests/adversarial_test.sh
+
+    - name: Authority bypass tests
+      run: bash tests/authority_bypass_test.sh

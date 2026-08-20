@@ -5,10 +5,10 @@ set -e
 TEMP_KEY=$(mktemp)
 dd if=/dev/urandom of="$TEMP_KEY" bs=32 count=1 2>/dev/null
 chmod 600 "$TEMP_KEY"
-export CHANGEOPS_APPROVAL_KEY_FILE="$TEMP_KEY"
+export HOWLCHANGEOPS_APPROVAL_KEY_FILE="$TEMP_KEY"
 
 mkdir -p config
-cat <<EOF > config/changeops-config.json
+cat <<EOF > config/howlchangeops-config.json
 {
   "repos": {
     "testrepo": {
@@ -21,7 +21,7 @@ cat <<EOF > config/changeops-config.json
 }
 EOF
 
-rm -rf tests/testrepo .changeops
+rm -rf tests/testrepo .howlchangeops .changeops
 mkdir -p tests/testrepo
 cd tests/testrepo
 git init
@@ -37,10 +37,12 @@ git checkout -b feature-branch
 cd ../..
 
 # Build
-cd adapter && go build -o ../changeops
+cd adapter && go build -o ../howlchangeops
 cd ..
+ln -sf howlchangeops changeops
 export PATH="$HOME/.local/bin:$PATH"
-~/.local/bin/howlframe build src/changeops.howl
+~/.local/bin/howlframe build src/howlchangeops.howl
+ln -sf howlchangeops.hfbc changeops.hfbc
 
 FAILURES=0
 echo "=== Authority Bypass Tests ==="
@@ -51,8 +53,8 @@ cat <<EOF > tests/prop.json
 {"action":"create_release_candidate","repo":"testrepo"}
 EOF
 # evaluate on feature-branch
-./changeops validate testrepo >/dev/null || true
-OUT=$(./changeops evaluate tests/prop.json) || true
+./howlchangeops validate testrepo >/dev/null || true
+OUT=$(./howlchangeops evaluate tests/prop.json) || true
 if echo "$OUT" | grep -q "branch not permitted"; then
   echo "  PASS: Stopped by branch policy"
 else
@@ -62,7 +64,7 @@ fi
 
 # Test 2: Action bypass
 echo "Test 2: Action bypass"
-cat <<EOF > config/changeops-config.json
+cat <<EOF > config/howlchangeops-config.json
 {
   "repos": {
     "testrepo": {
@@ -75,8 +77,8 @@ cat <<EOF > config/changeops-config.json
 }
 EOF
 cd tests/testrepo && git checkout main && cd ../..
-./changeops validate testrepo >/dev/null || true
-OUT=$(./changeops evaluate tests/prop.json) || true
+./howlchangeops validate testrepo >/dev/null || true
+OUT=$(./howlchangeops evaluate tests/prop.json) || true
 if echo "$OUT" | grep -q "action not permitted"; then
   echo "  PASS: Stopped by action policy"
 else
@@ -86,7 +88,7 @@ fi
 
 # Test 3: Decision mutation bypass
 echo "Test 3: Decision mutation bypass (repo transfer)"
-cat <<EOF > config/changeops-config.json
+cat <<EOF > config/howlchangeops-config.json
 {
   "repos": {
     "testrepo": {
@@ -119,19 +121,19 @@ git add main.go go.mod .gitignore
 git commit -m "initial"
 cd ../..
 
-./changeops validate testrepo >/dev/null || true
-./changeops validate testrepo2 >/dev/null || true
+./howlchangeops validate testrepo >/dev/null || true
+./howlchangeops validate testrepo2 >/dev/null || true
 
-OUT=$(./changeops evaluate tests/prop.json) || true
+OUT=$(./howlchangeops evaluate tests/prop.json) || true
 DEC_ID=$(echo "$OUT" | grep "Decision saved as" | awk '{print $4}' | tr -d '.')
-./changeops approve "$DEC_ID" >/dev/null
+./howlchangeops approve "$DEC_ID" >/dev/null
 
 # mutate decision to transfer to testrepo2 and bypass stale evidence
 REV2=$(cd tests/testrepo2 && git rev-parse HEAD)
-sed -i "s/\"repo\": \"testrepo\"/\"repo\": \"testrepo2\"/g" .changeops/decisions/${DEC_ID}.json
-sed -i "s/\"revision\": \"[a-f0-9]*\"/\"revision\": \"${REV2}\"/g" .changeops/decisions/${DEC_ID}.json
+sed -i "s/\"repo\": \"testrepo\"/\"repo\": \"testrepo2\"/g" .howlchangeops/decisions/${DEC_ID}.json
+sed -i "s/\"revision\": \"[a-f0-9]*\"/\"revision\": \"${REV2}\"/g" .howlchangeops/decisions/${DEC_ID}.json
 
-OUT2=$(./changeops execute "$DEC_ID" 2>&1) || true
+OUT2=$(./howlchangeops execute "$DEC_ID" 2>&1) || true
 if echo "$OUT2" | grep -q "Created tag"; then
   echo "  FAIL: Decision mutation bypassed! Tag created on testrepo2"
   FAILURES=$((FAILURES+1))
@@ -140,7 +142,7 @@ else
 fi
 
 # Cleanup test repos
-rm -rf tests/testrepo tests/testrepo2 tests/prop.json config/changeops-config.json
+rm -rf tests/testrepo tests/testrepo2 tests/prop.json config/howlchangeops-config.json
 
 if [ $FAILURES -eq 0 ]; then
   echo "ALL PASSED"

@@ -130,7 +130,7 @@ type ExecutionReceipt struct {
 }
 
 var (
-	baseDir      = ".changeops"
+	baseDir      = ".howlchangeops"
 	decisionsDir = filepath.Join(baseDir, "decisions")
 	approvalsDir = filepath.Join(baseDir, "approvals")
 	receiptsDir  = filepath.Join(baseDir, "receipts")
@@ -138,13 +138,20 @@ var (
 )
 
 func initDirs() {
-	if b := os.Getenv("CHANGEOPS_BASE"); b != "" {
+	if b := os.Getenv("HOWLCHANGEOPS_BASE"); b != "" {
 		baseDir = b
-		decisionsDir = filepath.Join(baseDir, "decisions")
-		approvalsDir = filepath.Join(baseDir, "approvals")
-		receiptsDir = filepath.Join(baseDir, "receipts")
-		historyFile = filepath.Join(baseDir, "history.jsonl")
+	} else if b := os.Getenv("CHANGEOPS_BASE"); b != "" {
+		baseDir = b
+	} else if _, err := os.Stat(".howlchangeops"); err == nil {
+		baseDir = ".howlchangeops"
+	} else if _, err := os.Stat(".changeops"); err == nil {
+		baseDir = ".changeops"
 	}
+	decisionsDir = filepath.Join(baseDir, "decisions")
+	approvalsDir = filepath.Join(baseDir, "approvals")
+	receiptsDir = filepath.Join(baseDir, "receipts")
+	historyFile = filepath.Join(baseDir, "history.jsonl")
+
 	os.MkdirAll(baseDir, 0755)
 	os.MkdirAll(decisionsDir, 0755)
 	os.MkdirAll(approvalsDir, 0755)
@@ -152,9 +159,14 @@ func initDirs() {
 }
 
 func loadConfig() (*Config, string, error) {
-	data, err := os.ReadFile("config/changeops-config.json")
+	configFile := "config/howlchangeops-config.json"
+	data, err := os.ReadFile(configFile)
 	if err != nil {
-		return nil, "", err
+		configFile = "config/changeops-config.json"
+		data, err = os.ReadFile(configFile)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
@@ -195,7 +207,10 @@ func validateActionName(action string) error {
 }
 
 func getApprovalKey() []byte {
-	keyFile := os.Getenv("CHANGEOPS_APPROVAL_KEY_FILE")
+	keyFile := os.Getenv("HOWLCHANGEOPS_APPROVAL_KEY_FILE")
+	if keyFile == "" {
+		keyFile = os.Getenv("CHANGEOPS_APPROVAL_KEY_FILE")
+	}
 	if keyFile == "" {
 		return nil
 	}
@@ -235,7 +250,6 @@ func gitCommand(repoPath string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), err
 }
 
-
 func parseGitHubRepo(url string) string {
 	url = strings.TrimSpace(url)
 	url = strings.TrimSuffix(url, ".git")
@@ -260,12 +274,12 @@ func gatherRemoteEvidence(repoPath string, branch string, rev string) RemoteEvid
 		ExpectedBranch: branch,
 		GatheredAt:     time.Now().UTC().Format(time.RFC3339),
 	}
-	
+
 	remoteURL, err := gitCommand(repoPath, "config", "--get", "remote.origin.url")
 	if err != nil || remoteURL == "" {
 		return re
 	}
-	
+
 	repoName := parseGitHubRepo(remoteURL)
 	if repoName == "" {
 		return re
@@ -283,8 +297,12 @@ func gatherRemoteEvidence(repoPath string, branch string, rev string) RemoteEvid
 		re.CIStatus = statusOut
 	}
 
-	tag := fmt.Sprintf("changeops/rc-%s", rev[:7])
+	tag := fmt.Sprintf("howlchangeops/rc-%s", rev[:7])
 	_, err = runGH(repoPath, "release", "view", tag)
+	if err != nil {
+		legacyTag := fmt.Sprintf("changeops/rc-%s", rev[:7])
+		_, err = runGH(repoPath, "release", "view", legacyTag)
+	}
 	if err == nil {
 		re.ReleaseExists = true
 	}
@@ -333,17 +351,17 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 	freshRemote := gatherRemoteEvidence(repoPath, branch, rev)
 
 	ev := EvidenceEnvelope{
-		Schema: "changeops.evidence/v1",
-		Repo: repoID,
-		Revision: rev,
-		Branch: branch,
-		WorkingTree: workingTree,
-		ValidationProfile: repoCfg.ValidationProfile,
+		Schema:                   "howlchangeops.evidence/v1",
+		Repo:                     repoID,
+		Revision:                 rev,
+		Branch:                   branch,
+		WorkingTree:              workingTree,
+		ValidationProfile:        repoCfg.ValidationProfile,
 		ValidationProfileVersion: "1.0",
-		ConfigDigest: configDigest,
-		Checks: make(map[string]ValidationResult),
-		Risk: computeRisk(repoPath, rev),
-		Remote: freshRemote,
+		ConfigDigest:             configDigest,
+		Checks:                   make(map[string]ValidationResult),
+		Risk:                     computeRisk(repoPath, rev),
+		Remote:                   freshRemote,
 	}
 
 	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s", repoID, rev, repoCfg.ValidationProfile, configDigest))))
@@ -359,18 +377,21 @@ func gatherEvidence(repoID string, repoPath string, repoCfg ConfigRepo, configDi
 	}
 
 	candidateExists := "false"
-	tags, _ := gitCommand(repoPath, "tag", "-l", fmt.Sprintf("changeops/rc-%s", rev[:7]))
+	tags, _ := gitCommand(repoPath, "tag", "-l", fmt.Sprintf("howlchangeops/rc-%s", rev[:7]))
+	if tags == "" {
+		tags, _ = gitCommand(repoPath, "tag", "-l", fmt.Sprintf("changeops/rc-%s", rev[:7]))
+	}
 	if tags != "" {
 		candidateExists = "true"
 	}
 
 	rtEv := RuntimeEvidence{
 		CurrentRevision: rev,
-		WorkingTree: workingTree,
+		WorkingTree:     workingTree,
 		CandidateExists: candidateExists,
-		Approved: "false",
-		RemoteHEAD: freshRemote.RemoteHEAD,
-		EvidenceDigest: computeEvidenceDigest(ev),
+		Approved:        "false",
+		RemoteHEAD:      freshRemote.RemoteHEAD,
+		EvidenceDigest:  computeEvidenceDigest(ev),
 	}
 	if ev.GeneratedAt != "" {
 		genTime, err := time.Parse(time.RFC3339, ev.GeneratedAt)
@@ -387,7 +408,7 @@ func runValidationCommand(name string, repoPath string, cmdName string, args ...
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = repoPath
 	out, err := cmd.CombinedOutput()
-	
+
 	status := "PASS"
 	exitCode := 0
 	if err != nil {
@@ -398,15 +419,15 @@ func runValidationCommand(name string, repoPath string, cmdName string, args ...
 			exitCode = -1
 		}
 	}
-	
+
 	return ValidationResult{
-		Name: name,
-		Status: status,
-		StartedAt: start.Format(time.RFC3339),
-		FinishedAt: time.Now().UTC().Format(time.RFC3339),
-		ExitCode: exitCode,
-		Profile: "local",
-		Revision: "HEAD",
+		Name:         name,
+		Status:       status,
+		StartedAt:    start.Format(time.RFC3339),
+		FinishedAt:   time.Now().UTC().Format(time.RFC3339),
+		ExitCode:     exitCode,
+		Profile:      "local",
+		Revision:     "HEAD",
 		OutputDigest: fmt.Sprintf("%x", sha256.Sum256(out)),
 	}
 }
@@ -419,23 +440,23 @@ func validate(repoID string, repoPath string, repoCfg ConfigRepo, configDigest s
 	if repoCfg.ValidationProfile == "go" {
 		fmt.Println("Running go test ./...")
 		ev.Checks["test"] = runValidationCommand("go_test", repoPath, "go", "test", "./...")
-		
+
 		fmt.Println("Running go build ./...")
 		ev.Checks["build"] = runValidationCommand("go_build", repoPath, "go", "build", "./...")
 	} else {
 		fmt.Printf("Unknown profile: %s\n", repoCfg.ValidationProfile)
 	}
-	
+
 	wtStatus := "FAIL"
 	if ev.WorkingTree == "clean" {
 		wtStatus = "PASS"
 	}
 	ev.Checks["working_tree"] = ValidationResult{
-		Name: "working_tree",
-		Status: wtStatus,
-		StartedAt: time.Now().UTC().Format(time.RFC3339),
+		Name:       "working_tree",
+		Status:     wtStatus,
+		StartedAt:  time.Now().UTC().Format(time.RFC3339),
 		FinishedAt: time.Now().UTC().Format(time.RFC3339),
-		ExitCode: 0,
+		ExitCode:   0,
 	}
 
 	os.MkdirAll(baseDir, 0755)
@@ -447,13 +468,17 @@ func validate(repoID string, repoPath string, repoCfg ConfigRepo, configDigest s
 }
 
 func invokeHowlFrame(proposalFile string, ev EvidenceEnvelope, rtEv RuntimeEvidence, repoCfg ConfigRepo) (map[string]interface{}, error) {
-	args := []string{"run", "-allow-caps", "filesystem", "changeops.hfbc", proposalFile}
+	policyArtifact := "howlchangeops.hfbc"
+	if _, err := os.Stat(policyArtifact); err != nil {
+		policyArtifact = "changeops.hfbc"
+	}
+	args := []string{"run", "-allow-caps", "filesystem", policyArtifact, proposalFile}
 	args = append(args, fmt.Sprintf("repo=%s", ev.Repo))
 	args = append(args, fmt.Sprintf("branch=%s", ev.Branch))
 	args = append(args, fmt.Sprintf("revision=%s", ev.Revision))
 	args = append(args, fmt.Sprintf("current_revision=%s", rtEv.CurrentRevision))
 	args = append(args, fmt.Sprintf("working_tree=%s", rtEv.WorkingTree))
-	
+
 	testStatus := "UNKNOWN"
 	if c, ok := ev.Checks["test"]; ok {
 		testStatus = c.Status
@@ -462,14 +487,14 @@ func invokeHowlFrame(proposalFile string, ev EvidenceEnvelope, rtEv RuntimeEvide
 	if c, ok := ev.Checks["build"]; ok {
 		buildStatus = c.Status
 	}
-	
+
 	args = append(args, fmt.Sprintf("tests=%s", testStatus))
 	args = append(args, fmt.Sprintf("build=%s", buildStatus))
 	args = append(args, fmt.Sprintf("approved=%s", rtEv.Approved))
 	args = append(args, fmt.Sprintf("candidate_exists=%s", rtEv.CandidateExists))
 	args = append(args, fmt.Sprintf("allowed_branches=%s", strings.Join(repoCfg.AllowedBranches, ",")))
 	args = append(args, fmt.Sprintf("allowed_actions=%s", strings.Join(repoCfg.AllowedActions, ",")))
-	
+
 	// Risk parameters
 	args = append(args, fmt.Sprintf("risk_infra=%t", ev.Risk.ContainsInfrastructure))
 	args = append(args, fmt.Sprintf("risk_deps=%t", ev.Risk.ContainsDependency))
@@ -504,8 +529,13 @@ func appendAudit(entry map[string]interface{}) {
 }
 
 func main() {
+	progName := filepath.Base(os.Args[0])
+	if progName != "changeops" && progName != "howlchangeops" {
+		progName = "howlchangeops"
+	}
+
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: changeops <command> [args...]")
+		fmt.Printf("Usage: %s <command> [args...]\n", progName)
 		os.Exit(1)
 	}
 
@@ -521,7 +551,7 @@ func main() {
 	switch cmd {
 	case "inspect":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops inspect <repo_id>")
+			fmt.Printf("Usage: %s inspect <repo_id>\n", progName)
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
@@ -544,7 +574,7 @@ func main() {
 
 	case "validate":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops validate <repo_id>")
+			fmt.Printf("Usage: %s validate <repo_id>\n", progName)
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
@@ -561,7 +591,7 @@ func main() {
 
 	case "plan":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops plan <repo_id>")
+			fmt.Printf("Usage: %s plan <repo_id>\n", progName)
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
@@ -575,29 +605,29 @@ func main() {
 			os.Exit(1)
 		}
 		ev, rtEv := gatherEvidence(repoID, repoCfg.Path, repoCfg, configDigest)
-		
+
 		actions := []string{
 			"create_release_candidate",
 			"create_github_draft_release",
 			"record_release_ready",
 			"rollback_release_candidate",
 		}
-		
+
 		tmpProp := filepath.Join(baseDir, "tmp_plan.json")
 		defer os.Remove(tmpProp)
-		
+
 		fmt.Printf("Plan for repository: %s (revision: %s)\n", repoID, ev.Revision[:7])
 		fmt.Printf("Evidence Identity: %s\n", rtEv.EvidenceDigest[:16])
 		if rtEv.EvidenceAge != "" {
 			fmt.Printf("Evidence Age: %s\n", rtEv.EvidenceAge)
 		}
 		fmt.Println()
-		
+
 		for _, act := range actions {
 			prop := Proposal{Action: act, Repo: repoID, Reason: "plan simulation"}
 			propData, _ := json.Marshal(prop)
 			os.WriteFile(tmpProp, propData, 0644)
-			
+
 			res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
 			if err != nil {
 				fmt.Printf("%-30s ERROR — %v\n", act, err)
@@ -612,10 +642,9 @@ func main() {
 			}
 		}
 
-	
 	case "dogfood":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops dogfood <repo_id>")
+			fmt.Printf("Usage: %s dogfood <repo_id>\n", progName)
 			os.Exit(1)
 		}
 		repoID := os.Args[2]
@@ -629,15 +658,15 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Println("ChangeOps Self-Dogfooding Workflow")
-		fmt.Println("----------------------------------")
-		
+		fmt.Println("HowlChangeOps Self-Dogfooding Workflow")
+		fmt.Println("--------------------------------------")
+
 		fmt.Printf("1. Identifying trusted repo: %s (%s)\n", repoID, repoCfg.Path)
 		fmt.Println("2. Gathering evidence and running validation profile...")
 		validate(repoID, repoCfg.Path, repoCfg, configDigest)
-		
+
 		ev, rtEv := gatherEvidence(repoID, repoCfg.Path, repoCfg, configDigest)
-		
+
 		fmt.Printf("3. Proposing release candidate for revision: %s\n", ev.Revision[:7])
 		prop := Proposal{
 			Action:     "create_release_candidate",
@@ -645,30 +674,30 @@ func main() {
 			Reason:     "Automated self-dogfooding workflow proposal",
 			Confidence: 1.0,
 		}
-		
+
 		tmpProp := filepath.Join(baseDir, "tmp_dogfood_proposal.json")
 		propData, _ := json.Marshal(prop)
 		os.WriteFile(tmpProp, propData, 0644)
 		defer os.Remove(tmpProp)
-		
+
 		fmt.Println("4. Evaluating proposal through HowlFrame policy...")
 		res, err := invokeHowlFrame(tmpProp, ev, rtEv, repoCfg)
 		if err != nil {
 			fmt.Printf("Evaluation error: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		decision := res["decision"].(string)
 		reason := res["reason"].(string)
-		
+
 		fmt.Printf("5. Policy Decision: %s\n", decision)
 		fmt.Printf("   Reason: %s\n", reason)
-		
+
 		if decision == "REQUIRE_APPROVAL" {
 			decisionID := fmt.Sprintf("decision-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%s-%d", prop.Action, ev.Revision, time.Now().UnixNano()))))[:16]
 			fmt.Printf("\nBOUNDARY: Human approval required. Cannot silently self-approve.\n")
-			fmt.Printf("Use 'changeops approve %s' to authorize this proposal.\n", decisionID)
-			
+			fmt.Printf("Use '%s approve %s' to authorize this proposal.\n", progName, decisionID)
+
 			// Save decision
 			var gates []Gate
 			if g, ok := res["gates"].([]interface{}); ok {
@@ -690,7 +719,7 @@ func main() {
 			dec.Digest = computeDecisionDigest(dec)
 			decData, _ := json.MarshalIndent(dec, "", "  ")
 			os.WriteFile(filepath.Join(decisionsDir, dec.ID+".json"), decData, 0644)
-			
+
 			appendAudit(map[string]interface{}{"event": "dogfood", "decision": dec})
 		} else {
 			fmt.Println("\nBOUNDARY CHECK: Failed to reach REQUIRE_APPROVAL. Is evidence passing?")
@@ -698,7 +727,7 @@ func main() {
 
 	case "evaluate":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops evaluate <proposal.json>")
+			fmt.Printf("Usage: %s evaluate <proposal.json>\n", progName)
 			os.Exit(1)
 		}
 		proposalFile := os.Args[2]
@@ -766,7 +795,7 @@ func main() {
 		if dec.Result == "REQUIRE_APPROVAL" {
 			decData, _ := json.MarshalIndent(dec, "", "  ")
 			os.WriteFile(filepath.Join(decisionsDir, dec.ID+".json"), decData, 0644)
-			fmt.Printf("Decision saved as %s. Use 'changeops approve %s' to approve.\n", dec.ID, dec.ID)
+			fmt.Printf("Decision saved as %s. Use '%s approve %s' to approve.\n", dec.ID, progName, dec.ID)
 		}
 
 		appendAudit(map[string]interface{}{
@@ -776,7 +805,7 @@ func main() {
 
 	case "approve":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops approve <decision_id>")
+			fmt.Printf("Usage: %s approve <decision_id>\n", progName)
 			os.Exit(1)
 		}
 		decID := os.Args[2]
@@ -792,16 +821,16 @@ func main() {
 			fmt.Println("Decision modified")
 			os.Exit(1)
 		}
-		
+
 		key := getApprovalKey()
 		if key == nil {
-			fmt.Println("DENIED: CHANGEOPS_APPROVAL_KEY_FILE not set or invalid")
+			fmt.Println("DENIED: HOWLCHANGEOPS_APPROVAL_KEY_FILE / CHANGEOPS_APPROVAL_KEY_FILE not set or invalid")
 			os.Exit(1)
 		}
 
 		now := time.Now().UTC()
 		app := Approval{
-			Schema:         "changeops.approval/v1",
+			Schema:         "howlchangeops.approval/v1",
 			ApprovalID:     fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%s-%d", dec.ID, now.UnixNano()))))[:16],
 			DecisionID:     dec.ID,
 			DecisionDigest: dec.Digest,
@@ -815,11 +844,11 @@ func main() {
 			Nonce:          fmt.Sprintf("%d", now.UnixNano()),
 		}
 		app.Signature = signApproval(app, key)
-		
+
 		appData, _ := json.MarshalIndent(app, "", "  ")
 		appFile := filepath.Join(approvalsDir, dec.ID+".json")
 		os.WriteFile(appFile, appData, 0644)
-		
+
 		fmt.Printf("Decision %s approved.\n", decID)
 		appendAudit(map[string]interface{}{
 			"event":       "approve",
@@ -829,7 +858,7 @@ func main() {
 
 	case "execute":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops execute <decision_id>")
+			fmt.Printf("Usage: %s execute <decision_id>\n", progName)
 			os.Exit(1)
 		}
 		decID := os.Args[2]
@@ -845,7 +874,7 @@ func main() {
 			fmt.Println("DENIED: Decision modified")
 			os.Exit(1)
 		}
-		
+
 		// Replay protection - check existing receipts
 		receiptFile := filepath.Join(receiptsDir, decID+".json")
 		if recData, err := os.ReadFile(receiptFile); err == nil {
@@ -870,10 +899,10 @@ func main() {
 
 		// Gather current evidence to check for staleness
 		_, rtEv := gatherEvidence(dec.Proposal.Repo, repoCfg.Path, repoCfg, configDigest)
-		
+
 		key := getApprovalKey()
 		if key == nil {
-			fmt.Println("DENIED: CHANGEOPS_APPROVAL_KEY_FILE not set")
+			fmt.Println("DENIED: HOWLCHANGEOPS_APPROVAL_KEY_FILE / CHANGEOPS_APPROVAL_KEY_FILE not set")
 			os.Exit(1)
 		}
 
@@ -926,8 +955,8 @@ func main() {
 		var execErr error
 
 		if dec.Proposal.Action == "create_release_candidate" {
-			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
-			out, err := gitCommand(repoCfg.Path, "tag", "-a", tag, "-m", "ChangeOps RC", rtEv.CurrentRevision)
+			tag := fmt.Sprintf("howlchangeops/rc-%s", rtEv.CurrentRevision[:7])
+			out, err := gitCommand(repoCfg.Path, "tag", "-a", tag, "-m", "HowlChangeOps RC", rtEv.CurrentRevision)
 			if err != nil {
 				execErr = fmt.Errorf("failed to create RC tag: %w (%s)", err, out)
 				fmt.Println(execErr)
@@ -961,8 +990,8 @@ func main() {
 				}
 			}
 		} else if dec.Proposal.Action == "create_github_draft_release" {
-			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
-			out, err := runGH(repoCfg.Path, "release", "create", tag, "--target", rtEv.CurrentRevision, "--draft", "--title", "Release Candidate "+tag, "--notes", "Automated RC via ChangeOps")
+			tag := fmt.Sprintf("howlchangeops/rc-%s", rtEv.CurrentRevision[:7])
+			out, err := runGH(repoCfg.Path, "release", "create", tag, "--target", rtEv.CurrentRevision, "--draft", "--title", "Release Candidate "+tag, "--notes", "Automated RC via HowlChangeOps")
 			if err != nil {
 				execErr = fmt.Errorf("failed to create GitHub release: %w (%s)", err, out)
 				fmt.Println(execErr)
@@ -993,7 +1022,12 @@ func main() {
 			verificationPassed = true
 			success = true
 		} else if dec.Proposal.Action == "rollback_release_candidate" {
-			tag := fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
+			tag := fmt.Sprintf("howlchangeops/rc-%s", rtEv.CurrentRevision[:7])
+			tagCheck, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
+			if tagCheck == "" {
+				// Fallback to legacy tag format
+				tag = fmt.Sprintf("changeops/rc-%s", rtEv.CurrentRevision[:7])
+			}
 			out, err := gitCommand(repoCfg.Path, "tag", "-d", tag)
 			if err != nil {
 				execErr = fmt.Errorf("failed to rollback RC tag: %w (%s)", err, out)
@@ -1018,7 +1052,6 @@ func main() {
 		}
 
 		// Always record an immutable ExecutionReceipt to prevent replay and capture audit truth
-
 		verStatus := "FAIL"
 		if verificationPassed {
 			verStatus = "PASS"
@@ -1029,7 +1062,7 @@ func main() {
 		}
 
 		receipt := ExecutionReceipt{
-			Schema:         "changeops.execution_receipt/v1",
+			Schema:         "howlchangeops.execution_receipt/v1",
 			DecisionID:     decID,
 			ApprovalID:     app.ApprovalID,
 			Action:         dec.Proposal.Action,
@@ -1059,7 +1092,7 @@ func main() {
 
 	case "rollback":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops rollback <decision_id>")
+			fmt.Printf("Usage: %s rollback <decision_id>\n", progName)
 			os.Exit(1)
 		}
 		decID := os.Args[2]
@@ -1100,8 +1133,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		tag := fmt.Sprintf("changeops/rc-%s", dec.Evidence.Revision[:7])
+		tag := fmt.Sprintf("howlchangeops/rc-%s", dec.Evidence.Revision[:7])
 		tagCheck, _ := gitCommand(repoCfg.Path, "tag", "-l", tag)
+		if tagCheck == "" {
+			tag = fmt.Sprintf("changeops/rc-%s", dec.Evidence.Revision[:7])
+			tagCheck, _ = gitCommand(repoCfg.Path, "tag", "-l", tag)
+		}
 		if tagCheck == "" {
 			fmt.Printf("Candidate tag %s does not exist; nothing to rollback.\n", tag)
 			os.Exit(1)
@@ -1154,7 +1191,7 @@ func main() {
 		if rbDec.Result == "REQUIRE_APPROVAL" {
 			decData, _ := json.MarshalIndent(rbDec, "", "  ")
 			os.WriteFile(filepath.Join(decisionsDir, rbDec.ID+".json"), decData, 0644)
-			fmt.Printf("Rollback decision saved as %s. Use 'changeops approve %s' then 'changeops execute %s' to apply rollback.\n", rbDec.ID, rbDec.ID, rbDec.ID)
+			fmt.Printf("Rollback decision saved as %s. Use '%s approve %s' then '%s execute %s' to apply rollback.\n", rbDec.ID, progName, rbDec.ID, progName, rbDec.ID)
 		} else if rbDec.Result == "DENY" {
 			fmt.Printf("Rollback denied by policy: %s\n", rbDec.Reason)
 			os.Exit(1)
@@ -1176,7 +1213,7 @@ func main() {
 
 	case "explain":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: changeops explain <decision_id>")
+			fmt.Printf("Usage: %s explain <decision_id>\n", progName)
 			os.Exit(1)
 		}
 		decID := os.Args[2]

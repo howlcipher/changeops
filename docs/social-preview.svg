@@ -15,8 +15,8 @@
     <rect x="50" y="50" width="1100" height="530" fill="none" stroke="#4a5aa8" stroke-width="4" />
     
     <!-- Title -->
-    <text x="100" y="140" font-family="'Courier New', monospace" font-size="64" font-weight="bold" fill="#ffffff">CHANGEOPS<tspan fill="#39ff14">█</tspan></text>
-    <text x="100" y="190" font-family="'Courier New', monospace" font-size="24" fill="#9a9aa3">// bounded change authority</text>
+    <text x="100" y="140" font-family="'Courier New', monospace" font-size="56" font-weight="bold" fill="#ffffff">HOWLCHANGEOPS<tspan fill="#39ff14">█</tspan></text>
+    <text x="100" y="190" font-family="'Courier New', monospace" font-size="24" fill="#9a9aa3">// bounded change authority &amp; release boundary</text>
 
     <!-- Flow diagram -->
     <g transform="translate(100, 260)" font-family="'Courier New', monospace" font-size="32" font-weight="bold">

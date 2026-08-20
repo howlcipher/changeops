@@ -1,0 +1,25 @@
+{
+  "repos": {
+    "howlframe": {
+      "path": "/run/media/system/tallgeese/dev/howlframe",
+      "allowed_branches": ["main"],
+      "validation_profile": "go",
+      "allowed_actions": [
+        "create_release_candidate",
+        "record_release_ready",
+        "rollback_release_candidate"
+      ]
+    },
+    "howlchangeops": {
+      "path": "/run/media/system/tallgeese/dev/howlchangeops",
+      "allowed_branches": ["main"],
+      "validation_profile": "go",
+      "allowed_actions": [
+        "create_release_candidate",
+        "create_github_draft_release",
+        "record_release_ready",
+        "rollback_release_candidate"
+      ]
+    }
+  }
+}

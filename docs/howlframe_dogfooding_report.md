@@ -1,10 +1,10 @@
-# HowlFrame Dogfooding Report
+# HowlFrame Dogfooding Report: HowlChangeOps
 
-## Is ChangeOps a real application?
-Yes. ChangeOps acts as a real-world release controller, demonstrating actual external impacts (creating release candidate tags in a Git repository) guided by a deterministic security boundary powered by HowlFrame.
+## Is HowlChangeOps a real application?
+Yes. HowlChangeOps acts as a real-world release controller, demonstrating actual external impacts (creating release candidate tags in a Git repository) guided by a deterministic security boundary powered by HowlFrame.
 
 ## Can the owner actually use it?
-Yes, it can be executed from a local machine on any local Git repository specified within `changeops-config.json` by invoking the bounded Go adapter commands (`inspect`, `validate`, `evaluate`, `approve`, `execute`).
+Yes, it can be executed from a local machine on any local Git repository specified within `howlchangeops-config.json` by invoking the bounded Go adapter commands (`inspect`, `validate`, `plan`, `evaluate`, `approve`, `execute`, `rollback`, `explain`, `history`).
 
 ## Can it operate against arbitrary configured personal repositories?
 Yes. A developer can specify any repository path locally, along with allowed validation profiles and branches. The adapter validates against that specific repo.
@@ -13,7 +13,7 @@ Yes. A developer can specify any repository path locally, along with allowed val
 It creates an annotated Git tag locally, representing a Release Candidate, bound tightly to the specific Git commit revision that was validated.
 
 ## Is HowlFrame actually the authority layer?
-Yes. The Go adapter strictly delegates policy evaluation to `changeops.hfbc`, a bytecode artifact compiled from `.howl`. The execution command only proceeds if HowlFrame produces an `ALLOW` decision.
+Yes. The Go adapter strictly delegates policy evaluation to `howlchangeops.hfbc`, a bytecode artifact compiled from `.howl`. The execution command only proceeds if HowlFrame produces an `ALLOW` decision.
 
 ## Can proposal data become arbitrary execution?
 No. The proposal JSON allows expressing intent, reasoning, and parameters, but it cannot override the underlying policy logic or force the host adapter into executing an unmapped command or an arbitrary shell script.
@@ -25,7 +25,7 @@ No. An adversarial test with `{"approved": true, "admin": true, "override": true
 No. Capabilities are granted explicitly by the runner (`-allow-caps filesystem`), isolating execution capabilities from AI output.
 
 ## Are repo paths trusted?
-Yes, via `changeops-config.json`. The AI only provides a logical ID (e.g. `"howlframe"`). Absolute paths mapping to those IDs are managed securely in the configuration file, preventing directory traversal or untrusted local access.
+Yes, via `howlchangeops-config.json`. The AI only provides a logical ID (e.g. `"howlframe"`). Absolute paths mapping to those IDs are managed securely in the configuration file, preventing directory traversal or untrusted local access.
 
 ## Are commands trusted?
 Yes. The commands executed by the Go adapter are hardcoded shell commands with verified deterministic arguments, rejecting arbitrary command execution. 
@@ -37,10 +37,10 @@ Yes. Approvals are tied specifically to the unique `decision_id` hashed against 
 Yes. Revisions are verified during `evaluate` and are then stored in the decision payload.
 
 ## Does stale evidence fail safely?
-Yes. By comparing `ev_revision` with `ev_current_revision`, execution is forcefully denied (`STALE_EVIDENCE`) if the repository has been mutated post-approval.
+Yes. By comparing `ev_revision` with `ev_current_revision`, execution is forcefully denied (`STALE_EVIDENCE` or `STALE_REMOTE_EVIDENCE`) if the repository has been mutated post-approval.
 
 ## Does state persist adequately?
-Yes. Decisions, including pending approvals and a chronological audit log (`history.jsonl`), are managed effectively using local file persistence (`.changeops/decisions/`).
+Yes. Decisions, including pending approvals and a chronological audit log (`history.jsonl`), are managed effectively using local file persistence (`.howlchangeops/decisions/`).
 
 ## How usable was HowlFrame outside its own repository?
 Very usable. The toolchain successfully functioned completely disconnected from the source code, leveraging the pinned release tag of v0.1.0 downloaded via standard release artifacts.
@@ -58,7 +58,7 @@ Very usable. The toolchain successfully functioned completely disconnected from 
 No absolute blockers.
 
 ## How many HowlFrame core changes were required?
-0. ChangeOps successfully built purely off the released v0.1.0 boundary.
+0. HowlChangeOps successfully built purely off the released v0.1.0 boundary.
 
 ## What should HowlFrame improve next based ONLY on this evidence?
 1. Enhanced standard library components for CLI argument parsing.
@@ -70,17 +70,17 @@ No absolute blockers.
 ## Phase 2-5 Update: Self-Dogfooding and Remote Evidence
 
 ### What we attempted
-- Self-dogfooding: allowing ChangeOps to safely evaluate its own repository.
+- Self-dogfooding: allowing HowlChangeOps to safely evaluate its own repository.
 - GitHub Remote Evidence: securely gathering repository state (like branch SHAs, CI status, existing releases) via `gh` CLI.
 - Remote stale-evidence protection (`STALE_REMOTE_EVIDENCE`).
-- One bounded remote operation: `create_github_draft_release`.
+- Bounded remote operation: `create_github_draft_release`.
 
 ### What worked naturally
 - The determinism. Being able to rely completely on the HowlFrame `.hfbc` artifact to reject stale remote evidence (`ev_remote_head != ev_current_remote_head`) without rewriting the logic in Go is very powerful.
 - Integrating external shell commands (like `gh` CLI) into the Go adapter while maintaining HowlFrame as the ultimate policy authority.
 
 ### What was awkward
-- Nesting `let` statements in `.howl`. With the addition of remote variables, `changeops.howl` now has 33 nested `let` statements, severely challenging bracket management (we hit compiler `Expected ')'` errors during development).
+- Nesting `let` statements in `.howl`. With the addition of remote variables, `howlchangeops.howl` now has 33 nested `let` statements, severely challenging bracket management (we hit compiler `Expected ')'` errors during development).
 
 ### What failed
 - Nothing failed at the boundary layer. All adversarial attempts to subvert the remote evidence or trigger path traversals were caught by HowlFrame and the Go adapter.
@@ -88,10 +88,10 @@ No absolute blockers.
 ### What HowlFrame changes were required
 0. We did not have to alter HowlFrame to support this integration.
 
-### What ChangeOps changes were required
+### What HowlChangeOps changes were required
 - Introduced `RemoteEvidence` to the `EvidenceEnvelope` in the Go adapter.
-- Plumbed 4 new remote variables to `changeops.howl` CLI arguments.
-- Updated `changeops-config.json` to configure the ChangeOps repository itself for `changeops dogfood`.
+- Plumbed 4 new remote variables to `howlchangeops.howl` CLI arguments.
+- Updated `howlchangeops-config.json` to configure the HowlChangeOps repository itself for `howlchangeops dogfood`.
 - Replaced adapter-level `go.mod` with a root-level `go.mod` to allow `go test ./...` to succeed correctly during self-validation.
 
 ### Bugs discovered
@@ -102,8 +102,8 @@ No absolute blockers.
 - Language level: Flat/block-scoped variable assignment in HowlFrame to avoid infinite nesting.
 
 ### Before/after architecture
-- **Before:** ChangeOps managed only local Git evidence, evaluating local branches and executing local git tags.
-- **After:** ChangeOps manages both local Git and remote GitHub evidence (`gh`), enforcing TOCTOU protections for both boundaries.
+- **Before:** Managed only local Git evidence, evaluating local branches and executing local git tags.
+- **After:** Manages both local Git and remote GitHub evidence (`gh`), enforcing TOCTOU protections for both boundaries.
 
 ### Metrics
 - **Lines of `.howl`**: 265

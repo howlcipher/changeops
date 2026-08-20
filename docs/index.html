@@ -6,170 +6,360 @@
     <meta name="description" content="ChangeOps is an experimental policy-driven release controller that separates AI intent from trusted evidence, authorization, approval, and bounded execution using HowlFrame.">
     <link rel="canonical" href="https://howlcipher.github.io/changeops/">
 
+    <!-- Open Graph Metadata -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="ChangeOps">
     <meta property="og:title" content="ChangeOps | Bounded Authority for AI-Assisted Change">
-    <meta property="og:description" content="ChangeOps is an experimental policy-driven release controller that separates AI intent from trusted evidence, authorization, approval, and bounded execution using HowlFrame.">
+    <meta property="og:description" content="Intent is not authority. ChangeOps enforces cryptographic approval gates and bounded execution on AI-proposed mutations.">
     <meta property="og:url" content="https://howlcipher.github.io/changeops/">
     <meta property="og:image" content="https://howlcipher.github.io/changeops/social-preview.png">
-    <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="ChangeOps terminal showing Intent is not authority">
+    <meta property="og:image:alt" content="ChangeOps authority boundary and release workflow preview card">
 
+    <!-- Twitter Card Metadata -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ChangeOps | Bounded Authority for AI-Assisted Change">
-    <meta name="twitter:description" content="ChangeOps is an experimental policy-driven release controller that separates AI intent from trusted evidence, authorization, approval, and bounded execution using HowlFrame.">
+    <meta name="twitter:description" content="Intent is not authority. ChangeOps enforces cryptographic approval gates and bounded execution on AI-proposed mutations.">
     <meta name="twitter:image" content="https://howlcipher.github.io/changeops/social-preview.png">
-    <meta name="twitter:image:alt" content="ChangeOps terminal showing Intent is not authority">
+    <meta name="twitter:image:alt" content="ChangeOps authority boundary and release workflow preview card">
 
     <title>ChangeOps | Bounded Authority for AI-Assisted Change</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="alternate icon" type="image/png" href="favicon.png">
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="container">
-        <header>
-            <div>
-                <p class="kicker">// bounded change authority / verified release control</p>
-                <h1 id="main-title">ChangeOps</h1>
+
+    <div class="layout-container">
+        <!-- Site Header -->
+        <header class="site-header">
+            <div class="header-top">
+                <div class="header-brand">
+                    <a href="https://howlcipher.github.io/changeops/" class="brand-sig">HOWL <span>//</span> CHANGEOPS</a>
+                    <span class="subsystem-tag">SYS_ID: CO-AUTH-04</span>
+                </div>
+                <div class="header-actions">
+                    <button id="theme-toggle" class="btn-theme-toggle" type="button" aria-pressed="false">
+                        <span aria-hidden="true">☾</span> [DARK_MODE]
+                    </button>
+                    <a href="https://github.com/howlcipher/changeops" class="btn-tech btn-tech-primary" target="_blank" rel="noreferrer">
+                        [ VIEW ON GITHUB ]
+                    </a>
+                </div>
             </div>
-            <div class="header-actions">
-                <a href="https://github.com/howlcipher/changeops" target="_blank" rel="noreferrer">[ View on GitHub ]</a>
-                <button id="theme-toggle" type="button" aria-pressed="false">Switch to light theme</button>
+
+            <!-- Ecosystem Navigation Strip -->
+            <div class="howl-ecosystem-bar" aria-label="Howl Ecosystem Navigation">
+                <div class="eco-label">HOWL ECOSYSTEM</div>
+                <nav class="eco-nav">
+                    <a href="https://howlcipher.github.io/howlframe/" class="eco-link">HowlFrame // VM</a>
+                    <a href="https://howlcipher.github.io/howlplane/" class="eco-link">HowlPlane // Control</a>
+                    <a href="https://howlcipher.github.io/howlnotes/" class="eco-link">HowlNotes // Knowledge</a>
+                    <a href="https://howlcipher.github.io/changeops/" class="eco-link active" aria-current="page">ChangeOps // Authority</a>
+                    <a href="https://howlcipher.github.io/howlboard/" class="eco-link">HowlBoard // Telemetry</a>
+                </nav>
             </div>
+
+            <!-- In-Page Section Navigation -->
+            <nav class="section-nav" aria-label="Page sections">
+                <span class="section-nav-label">READ_PATH:</span>
+                <a href="#overview">01_Overview</a>
+                <a href="#authority-boundary">02_Authority</a>
+                <a href="#release-flow">03_Workflow</a>
+                <a href="#separation">04_Separation</a>
+                <a href="#terminal-demo">05_TerminalDemo</a>
+                <a href="#attack-the-boundary">06_ThreatModel</a>
+                <a href="#howlframe-relationship">07_HowlFrame</a>
+                <a href="#security-model">08_SecurityModel</a>
+                <a href="#references">09_References</a>
+            </nav>
         </header>
 
-        <nav class="section-nav" aria-label="Page sections">
-            <span class="section-nav-label">READ_PATH:</span>
-            <a href="#overview">Start here</a>
-            <a href="#authority-boundary">Authority</a>
-            <a href="#release-flow">Workflow</a>
-            <a href="#security-model">Security</a>
-            <a href="#current-status">Status</a>
-        </nav>
-
+        <!-- Main Content Surface -->
         <main id="main-content">
-            <section id="overview">
-                <h2>Overview</h2>
-                <div class="overview-layout">
-                    <div>
-                        <p class="lead">ChangeOps is an experimental AI-aware Git and release controller built on HowlFrame. AI or humans may propose operational changes, but they cannot authorize them.</p>
-                        <blockquote><strong>Intent is not authority.</strong> The proposal describes what is wanted. It does not grant permission to do it.</blockquote>
-                        <p>ChangeOps gathers trusted state and evidence. HowlFrame independently determines whether the requested transition is <code>ALLOW</code>, <code>DENY</code>, or <code>REQUIRE_APPROVAL</code>. Only then can the trusted Go executor perform one bounded operation.</p>
+            <!-- Hero Panel -->
+            <section class="hero-panel" aria-labelledby="main-title">
+                <div class="hero-banner">
+                    <span>SPEC_VER // 0.2.0 (BOUNDED EXECUTION)</span>
+                    <span>GOVERNANCE: PLAN &rarr; APPROVE &rarr; EXECUTE &rarr; VERIFY</span>
+                </div>
+                <div class="hero-body">
+                    <div class="hero-header-block">
+                        <p class="hero-kicker">// bounded change authority / verified release control</p>
+                        <h1 id="main-title" class="hero-title">ChangeOps <span class="jp-sub">チェンジ・オプス // 2026</span></h1>
+                        <p class="hero-lead">
+                            ChangeOps bridges the gap between AI proposals and production reality using bounded execution. AI agents reason about release state, but deterministic machinery strictly gates mutation authority behind cryptographic human approval.
+                        </p>
                     </div>
-                    <div class="signal-grid" aria-label="ChangeOps operating model">
-                        <div><strong>PROPOSE</strong><span>AI or human intent</span></div>
-                        <div><strong>CHECK</strong><span>Trusted evidence</span></div>
-                        <div><strong>DECIDE</strong><span>HowlFrame policy</span></div>
-                        <div><strong>EXECUTE</strong><span>One bounded effect</span></div>
+
+                    <div class="axiom-card" role="region" aria-label="Governing Principle">
+                        <strong>AXIOM // INTENT IS NOT AUTHORITY.</strong> The proposal describes what is desired. It does not grant permission to perform mutations. ChangeOps verifies cryptographic signatures and rejects stale evidence before allowing one bounded Git change.
+                    </div>
+
+                    <div class="hero-actions">
+                        <a href="https://github.com/howlcipher/changeops" class="btn-tech btn-tech-primary" target="_blank" rel="noreferrer">
+                            [ CLONE REPOSITORY ]
+                        </a>
+                        <a href="#authority-boundary" class="btn-tech">
+                            [ AUTHORITY BOUNDARY ]
+                        </a>
+                        <a href="#terminal-demo" class="btn-tech">
+                            [ FIVE-MINUTE DEMO ]
+                        </a>
+                    </div>
+
+                    <!-- Hero Pipeline Diagram -->
+                    <div class="hero-diagram-wrap" aria-label="ChangeOps Authority Pipeline">
+                        <div class="diagram-header">
+                            <span>PIPELINE // PLAN &rarr; VALIDATE &rarr; APPROVE &rarr; EXECUTE &rarr; VERIFY</span>
+                            <span>STATUS: TOCTOU_PROTECTED</span>
+                        </div>
+                        <div class="pipeline-grid">
+                            <div class="pipe-step pipe-plan">
+                                <div class="pipe-step-header">01 // PLAN</div>
+                                <div class="pipe-step-body">
+                                    <div class="pipe-step-title">AI / User Intent</div>
+                                    <div class="pipe-step-desc">Untrusted proposal payload specifying action, logical repo, and target branch.</div>
+                                    <div class="pipe-step-tag">[TIER: UNTRUSTED]</div>
+                                </div>
+                            </div>
+                            <div class="pipe-step pipe-validate">
+                                <div class="pipe-step-header">02 // VALIDATE</div>
+                                <div class="pipe-step-body">
+                                    <div class="pipe-step-title">Git Evidence</div>
+                                    <div class="pipe-step-desc">Subprocess test runs, branch checks, and SHA-256 evidence envelope hashing.</div>
+                                    <div class="pipe-step-tag">[ENVELOPE: BOUND]</div>
+                                </div>
+                            </div>
+                            <div class="pipe-step pipe-approve">
+                                <div class="pipe-step-header">03 // APPROVE</div>
+                                <div class="pipe-step-body">
+                                    <div class="pipe-step-title">Critical Human Gate</div>
+                                    <div class="pipe-step-desc">Trusted HMAC-SHA256 signature bound to exact decision digest. Replay protected.</div>
+                                    <div class="pipe-step-tag">[GATE: SIGNATURE]</div>
+                                </div>
+                            </div>
+                            <div class="pipe-step pipe-execute">
+                                <div class="pipe-step-header">04 // EXECUTE</div>
+                                <div class="pipe-step-body">
+                                    <div class="pipe-step-title">Bounded Action</div>
+                                    <div class="pipe-step-desc">Single atomic mutation (e.g. tag creation). Blocked if evidence drifted.</div>
+                                    <div class="pipe-step-tag">[EFFECT: ATOMIC]</div>
+                                </div>
+                            </div>
+                            <div class="pipe-step pipe-verify">
+                                <div class="pipe-step-header">05 // VERIFY</div>
+                                <div class="pipe-step-body">
+                                    <div class="pipe-step-title">Post Audit</div>
+                                    <div class="pipe-step-desc">Post-action invariant check, durable receipt logging, and rollback readiness.</div>
+                                    <div class="pipe-step-tag">[AUDIT: VERIFIED]</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section id="authority-boundary">
-                <h2>Authority Boundary</h2>
-                <p>The core concept is separating proposal from permission. The execution architecture strictly enforces this boundary.</p>
-<pre><code>              UNTRUSTED
-        ┌──────────────────┐
-        │ AI / USER INTENT │
-        └────────┬─────────┘
-                 │
-                 ▼
-        ┌──────────────────┐
-        │ CHANGEOPS        │
-        │ EVIDENCE HOST    │
-        │ (GIT / GITHUB)   │
-        └────────┬─────────┘
-                 │
-                 ▼
-        ┌──────────────────┐
-        │ HOWLFRAME        │
-        │ POLICY AUTHORITY │
-        └───────┬──────────┘
-                │
-       ┌────────┼─────────┐
-       │        │         │
-      DENY    ALLOW    REQUIRE
-                       APPROVAL
-                          │
-                          ▼
-                  TRUSTED APPROVAL
-                          │
-                          ▼
-                EVIDENCE REVALIDATION
-                          │
-                          ▼
-                BOUNDED GITHUB ACTION
-                          │
-                          ▼
-                     VERIFICATION
-                          │
-                          ▼
-                       AUDIT</code></pre>
+            <!-- 01 Overview -->
+            <section id="overview" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 01</span> Overview &amp; Core Problem</h2>
+                    <span class="subsystem-tag">CO-MOD-OVERVIEW</span>
+                </div>
+                <div class="tech-body">
+                    <p>
+                        AI coding agents are capable of analyzing diffs, evaluating test coverage, and proposing release candidates. However, allowing an unconstrained model to invoke arbitrary shell commands or push tags directly to production creates catastrophic risk.
+                    </p>
+                    <p>
+                        ChangeOps proves that <strong>intent is not authority</strong>. It allows an AI (or human) to propose actions, strictly validates intent via deterministic <code>HowlFrame</code> bytecode policies, requires trusted human approval for state mutations, and executes bounded operations securely.
+                    </p>
+
+                    <div class="signal-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 1rem;">
+                        <div style="background: var(--bg-sunken); padding: 0.75rem; border: 1px solid var(--border-subtle);">
+                            <strong style="color: var(--color-khaki); display: block; font-family: var(--font-mono); font-size: 0.8rem;">01 // PROPOSE</strong>
+                            <span style="font-size: 0.85rem;">AI or human submits JSON intent payload</span>
+                        </div>
+                        <div style="background: var(--bg-sunken); padding: 0.75rem; border: 1px solid var(--border-subtle);">
+                            <strong style="color: var(--color-cyan); display: block; font-family: var(--font-mono); font-size: 0.8rem;">02 // CHECK</strong>
+                            <span style="font-size: 0.85rem;">Host gathers trusted Git state &amp; test evidence</span>
+                        </div>
+                        <div style="background: var(--bg-sunken); padding: 0.75rem; border: 1px solid var(--border-subtle);">
+                            <strong style="color: var(--color-red); display: block; font-family: var(--font-mono); font-size: 0.8rem;">03 // DECIDE</strong>
+                            <span style="font-size: 0.85rem;">HowlFrame VM evaluates policy decision</span>
+                        </div>
+                        <div style="background: var(--bg-sunken); padding: 0.75rem; border: 1px solid var(--border-subtle);">
+                            <strong style="color: var(--color-blue); display: block; font-family: var(--font-mono); font-size: 0.8rem;">04 // EXECUTE</strong>
+                            <span style="font-size: 0.85rem;">Bounded executor performs one verified effect</span>
+                        </div>
+                    </div>
+                </div>
             </section>
 
-            <section id="what-changeops-controls">
-                <h2>Separation of Concerns</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Domain</th>
-                            <th>Capabilities</th>
-                            <th>Restrictions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>AI / User</strong></td>
-                            <td>Propose action, choose logical repo, provide rationale.</td>
-                            <td>Cannot choose arbitrary paths, arbitrary commands, fabricate evidence, or self-approve.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>ChangeOps Host</strong></td>
-                            <td>Trusted repo mapping, Git evidence collection, validation execution, state persistence, approval mechanics, bounded effects, post-execution verification.</td>
-                            <td>Cannot override policy, bypass evidence checks, or authorize itself.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>HowlFrame</strong></td>
-                            <td>Branch policy, action policy, evidence requirements, stale-state checks, approval requirements, final authorization decision.</td>
-                            <td>Cannot perform physical execution or modify host environment.</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- 02 Authority Boundary -->
+            <section id="authority-boundary" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 02</span> Authority Boundary Architecture</h2>
+                    <span class="subsystem-tag">CO-MOD-BOUNDARY</span>
+                </div>
+                <div class="tech-body">
+                    <p>
+                        The core architectural principle is the total separation between proposal and permission. Untrusted inputs never touch host execution paths directly:
+                    </p>
+                    <div class="code-container">
+                        <div class="code-header">
+                            <span class="code-title">[SCHEMATIC // BOUNDARY_ARCHITECTURE]</span>
+                            <span class="subsystem-tag">AUTHORITY_GATE</span>
+                        </div>
+                        <pre><code>              UNTRUSTED ZONE
+        ┌─────────────────────────┐
+        │  AI / USER INTENT JSON  │
+        └────────────┬────────────┘
+                     │
+                     ▼
+        ┌─────────────────────────┐
+        │ CHANGEOPS EVIDENCE HOST │
+        │ (GIT / LOCAL TEST RUNS) │
+        └────────────┬────────────┘
+                     │
+                     ▼
+        ┌─────────────────────────┐
+        │ HOWLFRAME POLICY ENGINE │
+        │ (COMPILED BYTECODE VM)  │
+        └────────────┬────────────┘
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+       DENY        ALLOW       REQUIRE
+                               APPROVAL
+                                  │
+                                  ▼
+                        [ CRITICAL HUMAN GATE ]
+                        HMAC-SHA256 SIGNATURE
+                                  │
+                                  ▼
+                        EVIDENCE REVALIDATION
+                        (TOCTOU DRIFT CHECK)
+                                  │
+                                  ▼
+                        BOUNDED GIT EXECUTION
+                        (TAG CREATION / RELEASE)
+                                  │
+                                  ▼
+                        POST-VERIFICATION &amp; AUDIT</code></pre>
+                    </div>
+                </div>
             </section>
 
-            <section id="release-flow">
-                <h2>Release Flow</h2>
-                <p>ChangeOps implements a strict sequential workflow to guarantee intent matches verifiable execution state.</p>
-                <ol>
-                    <li><strong>INSPECT:</strong> Retrieve verifiable Git states and logical repo configurations.</li>
-                    <li><strong>VALIDATE:</strong> Run tests and store status safely in a cryptographically bound evidence envelope.</li>
-                    <li><strong>PLAN:</strong> Simulate the changes the proposal intends to make.</li>
-                    <li><strong>EVALUATE:</strong> Assess an intent payload against policy to output a deterministic decision.</li>
-                    <li><strong>EXPLAIN:</strong> Decode the reasoning behind an evaluation decision.</li>
-                    <li><strong>APPROVE:</strong> Provide a trusted HMAC-SHA256 authorization signature tied to the exact decision state.</li>
-                    <li><strong>EXECUTE:</strong> Verify evidence is not stale and perform strictly bounded physical changes.</li>
-                    <li><strong>VERIFY:</strong> Post-action verification ensures the expected state was achieved.</li>
-                    <li><strong>AUDIT:</strong> Output a complete JSON-lines audit trail of evaluation and execution logic.</li>
-                    <li><strong>ROLLBACK:</strong> Revert release candidates when necessary.</li>
-                </ol>
+            <!-- 03 Separation -->
+            <section id="separation" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 03</span> Separation of Concerns Matrix</h2>
+                    <span class="subsystem-tag">CO-MOD-SEPARATION</span>
+                </div>
+                <div class="tech-body">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Allowed Capabilities</th>
+                                    <th>Strict Restrictions</th>
+                                    <th>Security Guarantee</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>AI / User Intent</strong></td>
+                                    <td>Propose action, choose logical repo, provide rationale</td>
+                                    <td>Cannot choose arbitrary paths, run arbitrary shell commands, or self-approve</td>
+                                    <td><span class="chip chip-khaki">UNTRUSTED</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ChangeOps Host</strong></td>
+                                    <td>Repo mapping, Git evidence collection, test validation, approval verification, bounded effects</td>
+                                    <td>Cannot override policy, bypass evidence checks, or authorize itself</td>
+                                    <td><span class="chip chip-cyan">EVIDENCE BOUND</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>HowlFrame Policy</strong></td>
+                                    <td>Branch rules, action rules, evidence requirements, stale-state checks, authorization verdicts</td>
+                                    <td>Cannot perform physical execution or modify host environment</td>
+                                    <td><span class="chip chip-deny">DETERMINISTIC</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
-            <section id="terminal-demo">
-                <h2>Terminal Demo</h2>
-<pre><code>changeops inspect howlframe
+            <!-- 04 Release Flow -->
+            <section id="release-flow" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 04</span> Ten-Stage Release Flow</h2>
+                    <span class="subsystem-tag">CO-MOD-WORKFLOW</span>
+                </div>
+                <div class="tech-body">
+                    <ol>
+                        <li><strong>INSPECT:</strong> Retrieve verifiable Git states and logical repo configurations.</li>
+                        <li><strong>VALIDATE:</strong> Run tests and store status safely in a cryptographically bound evidence envelope.</li>
+                        <li><strong>PLAN:</strong> Simulate the changes the proposal intends to make.</li>
+                        <li><strong>EVALUATE:</strong> Assess an intent payload against policy to output a deterministic decision.</li>
+                        <li><strong>EXPLAIN:</strong> Decode the reasoning and invariant checks behind an evaluation decision.</li>
+                        <li><strong>APPROVE:</strong> Provide a trusted HMAC-SHA256 authorization signature tied to the exact decision state.</li>
+                        <li><strong>EXECUTE:</strong> Verify evidence is not stale and perform strictly bounded physical changes.</li>
+                        <li><strong>VERIFY:</strong> Post-action verification ensures the expected state was achieved.</li>
+                        <li><strong>AUDIT:</strong> Output a complete JSON-lines audit trail of evaluation and execution logic.</li>
+                        <li><strong>ROLLBACK:</strong> Revert release candidates when necessary under governed authorization.</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- 05 Terminal Demo -->
+            <section id="terminal-demo" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 05</span> Terminal Demo &amp; Policy Output</h2>
+                    <span class="subsystem-tag">CO-MOD-CLI</span>
+                </div>
+                <div class="tech-body">
+                    <div class="code-container">
+                        <div class="code-header">
+                            <span class="code-title">[BASH // CLI_LIFECYCLE]</span>
+                            <button class="btn-copy" type="button">[COPY]</button>
+                        </div>
+                        <pre><code># 1. Inspect repository state
+changeops inspect howlframe
+
+# 2. Validate tests and generate evidence envelope
 changeops validate howlframe
-changeops plan howlframe
-changeops evaluate proposal.json
-changeops explain decision-123
-changeops approve decision-123
-changeops execute decision-123
-changeops history</code></pre>
 
-                <h3>Representative Policy Output</h3>
-<pre><code>DECISION: REQUIRE_APPROVAL
+# 3. Simulate planned changes
+changeops plan howlframe
+
+# 4. Evaluate proposal against HowlFrame bytecode policy
+changeops evaluate proposal.json
+
+# 5. Explain decision invariants
+changeops explain decision-123
+
+# 6. Human operator signs off with trusted key
+changeops approve decision-123
+
+# 7. Execute bounded mutation
+changeops execute decision-123
+
+# 8. View verified audit history
+changeops history</code></pre>
+                    </div>
+
+                    <h3>Representative Policy Verdict</h3>
+                    <div class="code-container">
+                        <div class="code-header">
+                            <span class="code-title">[OUTPUT // POLICY_VERDICT]</span>
+                            <span class="subsystem-tag">EVALUATION</span>
+                        </div>
+                        <pre><code>DECISION: REQUIRE_APPROVAL
 
 branch_allowed........ PASS
 working_tree_clean.... PASS
@@ -178,94 +368,112 @@ build................. PASS
 approval.............. REQUIRED
 
 reason:
-release candidate mutation requires trusted approval</code></pre>
+release candidate mutation requires trusted human approval signature</code></pre>
+                    </div>
+                </div>
             </section>
 
-            <section id="attack-the-boundary">
-                <h2>Attack the Boundary</h2>
-                <p>ChangeOps exists to reject invalid or malicious intent. Proposal fields do not become authority.</p>
+            <!-- 06 Attack the Boundary -->
+            <section id="attack-the-boundary" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 06</span> Attack the Boundary (Threat Invariants)</h2>
+                    <span class="subsystem-tag">CO-MOD-THREAT</span>
+                </div>
+                <div class="tech-body">
+                    <div class="security-alert">
+                        <div class="security-alert-title">Scenario A: Hostile Self-Approval Injection</div>
+                        <p>An untrusted model submits <code>{"approved": true, "admin": true, "override": true}</code> in the proposal JSON.</p>
+                        <p><strong>RESULT:</strong> <code>REQUIRE_APPROVAL</code>. Fake approval parameters are ignored; only trusted cryptographic signatures matching the decision digest are accepted.</p>
+                    </div>
 
-                <h3>Hostile Intent</h3>
-<pre><code>{
-  "action": "create_release_candidate",
-  "repo": "howlframe",
-  "approved": true,
-  "admin": true,
-  "override": true
-}</code></pre>
-                <p><strong>RESULT:</strong> <code>REQUIRE_APPROVAL</code>. Fake approval parameters are ignored; only trusted cryptographic signatures are accepted.</p>
+                    <div class="security-alert">
+                        <div class="security-alert-title">Scenario B: Directory Traversal</div>
+                        <p>An attacker submits <code>repo: "../../etc"</code>.</p>
+                        <p><strong>RESULT:</strong> <code>UNKNOWN_REPOSITORY</code>. Only strictly configured logical repository mappings are accepted.</p>
+                    </div>
 
-                <h3>Directory Traversal</h3>
-<pre><code>repo="../../etc"</code></pre>
-                <p><strong>RESULT:</strong> <code>UNKNOWN_REPOSITORY</code>. Only strictly configured logical repository mappings are accepted.</p>
-
-                <h3>Time-of-Check to Time-of-Use</h3>
-                <p><em>Validated revision changes after approval</em></p>
-                <p><strong>RESULT:</strong> <code>STALE_EVIDENCE</code>. Execution is blocked because the approved state drifted.</p>
+                    <div class="security-alert">
+                        <div class="security-alert-title">Scenario C: Time-of-Check to Time-of-Use (TOCTOU) Drift</div>
+                        <p>A commit is pushed to the repository after evidence validation and before execution.</p>
+                        <p><strong>RESULT:</strong> <code>STALE_EVIDENCE</code>. Execution is blocked immediately because the approved state drifted.</p>
+                    </div>
+                </div>
             </section>
 
-            <section id="howlframe-relationship">
-                <h2>HowlFrame Relationship</h2>
-                <p>ChangeOps is an independent application built on HowlFrame's public execution boundary. It acts as real-world dogfooding for HowlFrame's core idea: probabilistic systems may propose actions, while deterministic machinery retains authority.</p>
-                <p>
-                    <a href="https://github.com/howlcipher/changeops" target="_blank" rel="noreferrer">[ CHANGEOPS SOURCE ]</a>
-                    <br><br>
-                    <a href="https://howlcipher.github.io/howlframe/" target="_blank" rel="noreferrer">[ HOWLFRAME ]</a>
-                </p>
-                <blockquote><strong>HOWLFRAME =</strong> language/runtime/authority layer<br><strong>CHANGEOPS =</strong> release/change control application</blockquote>
+            <!-- 07 HowlFrame Relationship -->
+            <section id="howlframe-relationship" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 07</span> HowlFrame Relationship</h2>
+                    <span class="subsystem-tag">CO-MOD-HOWLFRAME</span>
+                </div>
+                <div class="tech-body">
+                    <p>
+                        ChangeOps is an independent application built on HowlFrame's public execution boundary. It acts as real-world dogfooding for HowlFrame's core thesis: probabilistic systems may propose actions, while deterministic machinery retains execution authority.
+                    </p>
+                    <div class="axiom-card">
+                        <strong>HOWLFRAME =</strong> Language / Bytecode Runtime / Capability Authority Layer<br>
+                        <strong>CHANGEOPS =</strong> Governed Release &amp; Change Control Application
+                    </div>
+                </div>
             </section>
 
-            <section id="security-model">
-                <h2>Security Model</h2>
-                <p>The v0.2 security architecture establishes a strong local trusted evidence foundation with:</p>
-                <ul>
-                    <li>Finite allowed action catalog within operational domain</li>
-                    <li>Trusted logical-repo mapping and path confinement</li>
-                    <li>Revision-bound evidence</li>
-                    <li>Decision integrity via deterministic bytecode policy</li>
-                    <li>HMAC-SHA256 cryptographic approval bindings</li>
-                    <li>Replay protection (consumed approvals)</li>
-                    <li>Stale-evidence denial</li>
-                    <li>Bounded <code>exec.Command</code> arguments</li>
-                    <li>Post-action verification</li>
-                </ul>
+            <!-- 08 Security Model -->
+            <section id="security-model" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 08</span> Security Architecture</h2>
+                    <span class="subsystem-tag">CO-MOD-SECURITY</span>
+                </div>
+                <div class="tech-body">
+                    <ul>
+                        <li>Finite allowed action catalog within operational domain</li>
+                        <li>Trusted logical-repo mapping and path confinement</li>
+                        <li>Revision-bound SHA-256 evidence envelopes</li>
+                        <li>Decision integrity via deterministic bytecode policy</li>
+                        <li>HMAC-SHA256 cryptographic approval bindings</li>
+                        <li>Replay protection (consumed approvals cannot be re-executed)</li>
+                        <li>Stale-evidence denial (TOCTOU drift detection)</li>
+                        <li>Bounded <code>exec.Command</code> arguments without shell injection vectors</li>
+                        <li>Post-action verification and audit logging</li>
+                    </ul>
+                </div>
             </section>
 
-            <section id="current-status">
-                <h2>Current Status</h2>
-                <p>STATUS: <strong>EXPERIMENTAL / ACTIVE</strong></p>
-
-                <h3>Implemented</h3>
-                <ul>
-                    <li>Inspect, Validate, Evaluate, Approve, Execute, History, Plan, Explain</li>
-                    <li>HMAC-SHA256 signature approval bound to decision</li>
-                    <li>Validation profiles (e.g. <code>go test</code>)</li>
-                    <li>Stale evidence prevention (TOCTOU checks)</li>
-                    <li>Rollback operations</li>
-                </ul>
-
-                <h3>Future</h3>
-                <ul>
-                    <li>GitHub Actions evidence ingestion</li>
-                    <li>Remote release control (API)</li>
-                    <li>Broader validation profiles</li>
-                </ul>
-            </section>
-
-            <section id="why-this-exists">
-                <h2>Why This Exists</h2>
-                <p>Traditional AI automation often collapses reasoning, authorization, and execution into one privileged agent. ChangeOps deliberately separates them.</p>
-                <blockquote>proposal != permission<br>confidence != evidence<br>intent != authority</blockquote>
-                <p>The goal isn't maximum autonomy. The goal is useful automation with explicit boundaries around mutation.</p>
+            <!-- 09 References -->
+            <section id="references" class="tech-panel">
+                <div class="tech-header">
+                    <h2><span class="sec-id">SECTION // 09</span> Documentation &amp; References</h2>
+                    <span class="subsystem-tag">CO-MOD-DOCS</span>
+                </div>
+                <div class="tech-body">
+                    <ul>
+                        <li><a href="https://github.com/howlcipher/changeops/blob/main/README.md" target="_blank" rel="noreferrer">README and Quick Start</a></li>
+                        <li><a href="authority_boundary_report.md">Authority Boundary Report</a></li>
+                        <li><a href="threat_model.md">Threat Model &amp; Invariants Specification</a></li>
+                        <li><a href="howlframe_dogfooding_report.md">HowlFrame Dogfooding Report</a></li>
+                        <li><a href="https://github.com/howlcipher/changeops/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT License</a></li>
+                    </ul>
+                </div>
             </section>
         </main>
 
-        <footer>
-            <span><span class="status-dot" aria-hidden="true"></span>STATUS: ACTIVE &mdash; CHANGEOPS://AUTHORITY</span>
-            <div style="text-align: right;">
-                <a href="https://github.com/howlcipher/changeops" target="_blank" rel="noreferrer">github.com/howlcipher/changeops</a>
-                <br>
-                <span style="font-size: 0.85em; color: var(--fg-muted);">BUILT ON HOWLFRAME</span>
+        <!-- Site Footer -->
+        <footer class="site-footer">
+            <div class="footer-telemetry">
+                <div class="status-indicator">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span>SYS_STATUS: ACTIVE // CHANGEOPS-RELEASE-CONTROLLER</span>
+                </div>
+                <div>AUTH // HOWL ECOSYSTEM 2026</div>
+            </div>
+            <div class="footer-links">
+                <nav class="footer-nav" aria-label="Ecosystem Links">
+                    <a href="https://howlcipher.github.io/howlframe/">HowlFrame</a>
+                    <a href="https://howlcipher.github.io/howlplane/">HowlPlane</a>
+                    <a href="https://howlcipher.github.io/howlnotes/">HowlNotes</a>
+                    <a href="https://howlcipher.github.io/changeops/">ChangeOps</a>
+                    <a href="https://howlcipher.github.io/howlboard/">HowlBoard</a>
+                </nav>
+                <a href="#main-content">[ BACK TO TOP ]</a>
             </div>
         </footer>
     </div>

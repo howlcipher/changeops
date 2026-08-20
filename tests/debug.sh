@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+
+# Setup temp repo
 TEMP_REPO=$(mktemp -d)
 cd "$TEMP_REPO"
 git init
@@ -10,21 +12,20 @@ git add file.txt
 git commit -m "initial commit"
 git branch -m main
 
+# Mock go profile for tests
 echo "package main; func main() {}" > main.go
 go mod init testrepo
-echo "testrepo" > .gitignore
-git add main.go go.mod .gitignore
+git add main.go go.mod
 git commit -m "add go mock profile"
 
-cd - > /dev/null
-PROJECT_DIR=$PWD
-export PATH="$PROJECT_DIR:$PATH"
-export CHANGEOPS_BASE="$TEMP_REPO/.changeops"
-export CHANGEOPS_APPROVAL_KEY_FILE="$TEMP_REPO/approval_key.bin"
-dd if=/dev/urandom of="$TEMP_REPO/approval_key.bin" bs=32 count=1 2>/dev/null
+PROJECT_DIR=/run/media/system/tallgeese/dev/howlchangeops
+export HOWLCHANGEOPS_BASE="$TEMP_REPO/.howlchangeops"
+export HOWLCHANGEOPS_APPROVAL_KEY_FILE="$TEMP_REPO/approval_key.bin"
+dd if=/dev/urandom of="$HOWLCHANGEOPS_APPROVAL_KEY_FILE" bs=32 count=1 2>/dev/null
+chmod 600 "$HOWLCHANGEOPS_APPROVAL_KEY_FILE"
 
 mkdir -p "$TEMP_REPO/config"
-cat <<EOF > "$TEMP_REPO/config/changeops-config.json"
+cat <<EOF > "$TEMP_REPO/config/howlchangeops-config.json"
 {
   "repos": {
     "testrepo": {
@@ -38,19 +39,20 @@ cat <<EOF > "$TEMP_REPO/config/changeops-config.json"
 EOF
 
 cd "$TEMP_REPO"
-ln -s "$PROJECT_DIR/changeops" changeops
-ln -s "$PROJECT_DIR/changeops.hfbc" changeops.hfbc
-
+ln -s "$PROJECT_DIR/howlchangeops" howlchangeops
+ln -s "$PROJECT_DIR/howlchangeops.hfbc" howlchangeops.hfbc
+ln -s howlchangeops changeops
+ln -s howlchangeops.hfbc changeops.hfbc
 
 cat <<EOF > proposal_1.json
 {
   "action": "create_release_candidate",
   "repo": "testrepo",
-  "reason": "Test clean repo",
+  "reason": "Test dirty repo",
   "confidence": 0.9
 }
 EOF
 
-./changeops validate testrepo
-echo "--- EVALUATE ---"
-./changeops evaluate proposal_1.json
+./howlchangeops validate testrepo
+echo "=== evaluate ==="
+./howlchangeops evaluate proposal_1.json

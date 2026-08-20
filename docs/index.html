@@ -32,6 +32,70 @@
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
 
+    <!-- Ecosystem Slide-out Drawer Overlay -->
+    <div id="eco-drawer-overlay" class="eco-drawer-overlay" aria-hidden="true"></div>
+
+    <!-- Ecosystem Slide-out Drawer Panel -->
+    <aside id="eco-drawer" class="eco-drawer" aria-label="Howl Ecosystem Directory" aria-hidden="true">
+        <div class="drawer-header">
+            <div class="drawer-title">HOWL // ECOSYSTEM DIRECTORY</div>
+            <button id="eco-drawer-close" class="btn-drawer-close" type="button" aria-label="Close ecosystem directory">[✕ CLOSE]</button>
+        </div>
+        <div class="drawer-body">
+            <a href="https://howlcipher.github.io/howl/" class="drawer-node-card">
+                <div class="node-card-top">
+                    <span class="node-card-name">HOWL // HUB</span>
+                    <span class="node-card-role">[PORTAL]</span>
+                </div>
+                <div class="node-card-desc">Central ecosystem portal, architectural blueprint, and cross-project governance map.</div>
+            </a>
+
+            <a href="https://howlcipher.github.io/howlframe/" class="drawer-node-card">
+                <div class="node-card-top">
+                    <span class="node-card-name">HOWLFRAME</span>
+                    <span class="node-card-role" style="color: var(--color-magenta);">[VM &amp; COMPILER]</span>
+                </div>
+                <div class="node-card-desc">AI-native reasoning language, typed intermediate representation, and sandboxed bytecode VM.</div>
+            </a>
+
+            <a href="https://howlcipher.github.io/howlplane/" class="drawer-node-card">
+                <div class="node-card-top">
+                    <span class="node-card-name">HOWLPLANE</span>
+                    <span class="node-card-role" style="color: var(--color-blue);">[CONTROL PLANE]</span>
+                </div>
+                <div class="node-card-desc">Engineering control plane with deterministic routing, adversarial falsification, and human gates.</div>
+            </a>
+
+            <a href="https://howlcipher.github.io/howlnotes/" class="drawer-node-card">
+                <div class="node-card-top">
+                    <span class="node-card-name">HOWLNOTES</span>
+                    <span class="node-card-role" style="color: var(--color-cyan);">[KNOWLEDGE NOTEBOOK]</span>
+                </div>
+                <div class="node-card-desc">Engineering knowledge notebook &amp; full-stack dogfood consumer proving native persistent storage.</div>
+            </a>
+
+            <a href="https://howlcipher.github.io/changeops/" class="drawer-node-card active-hub">
+                <div class="node-card-top">
+                    <span class="node-card-name">CHANGEOPS</span>
+                    <span class="node-card-role" style="color: var(--color-red);">[AUTHORITY GATE]</span>
+                </div>
+                <div class="node-card-desc">Governed release controller enforcing cryptographic human approvals and bounded Git mutations.</div>
+            </a>
+
+            <a href="https://howlcipher.github.io/howlboard/" class="drawer-node-card">
+                <div class="node-card-top">
+                    <span class="node-card-name">HOWLBOARD</span>
+                    <span class="node-card-role" style="color: var(--color-amber);">[EVALUATION SURFACE]</span>
+                </div>
+                <div class="node-card-desc">Observation console and full-stack deterministic task state machine application.</div>
+            </a>
+        </div>
+        <div class="drawer-footer">
+            <span>● 5 PRODUCTION NODES</span>
+            <span>AUTH // HOWL 2026</span>
+        </div>
+    </aside>
+
     <div class="layout-container">
         <!-- Site Header -->
         <header class="site-header">
@@ -41,6 +105,9 @@
                     <span class="subsystem-tag">SYS_ID: CO-AUTH-04</span>
                 </div>
                 <div class="header-actions">
+                    <button id="eco-menu-toggle" class="btn-eco-toggle" type="button" aria-expanded="false" aria-controls="eco-drawer" aria-label="Toggle Howl Ecosystem Directory">
+                        <span aria-hidden="true">☰</span> [ECOSYSTEM]
+                    </button>
                     <button id="theme-toggle" class="btn-theme-toggle" type="button" aria-pressed="false">
                         <span aria-hidden="true">☾</span> [DARK_MODE]
                     </button>
@@ -48,18 +115,6 @@
                         [ VIEW ON GITHUB ]
                     </a>
                 </div>
-            </div>
-
-            <!-- Ecosystem Navigation Strip -->
-            <div class="howl-ecosystem-bar" aria-label="Howl Ecosystem Navigation">
-                <div class="eco-label">HOWL ECOSYSTEM</div>
-                <nav class="eco-nav">
-                    <a href="https://howlcipher.github.io/howlframe/" class="eco-link">HowlFrame // VM</a>
-                    <a href="https://howlcipher.github.io/howlplane/" class="eco-link">HowlPlane // Control</a>
-                    <a href="https://howlcipher.github.io/howlnotes/" class="eco-link">HowlNotes // Knowledge</a>
-                    <a href="https://howlcipher.github.io/changeops/" class="eco-link active" aria-current="page">ChangeOps // Authority</a>
-                    <a href="https://howlcipher.github.io/howlboard/" class="eco-link">HowlBoard // Telemetry</a>
-                </nav>
             </div>
 
             <!-- In-Page Section Navigation -->
@@ -467,6 +522,7 @@ release candidate mutation requires trusted human approval signature</code></pre
             </div>
             <div class="footer-links">
                 <nav class="footer-nav" aria-label="Ecosystem Links">
+                    <a href="https://howlcipher.github.io/howl/">Howl Hub</a>
                     <a href="https://howlcipher.github.io/howlframe/">HowlFrame</a>
                     <a href="https://howlcipher.github.io/howlplane/">HowlPlane</a>
                     <a href="https://howlcipher.github.io/howlnotes/">HowlNotes</a>
